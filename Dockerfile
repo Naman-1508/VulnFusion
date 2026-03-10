@@ -49,10 +49,11 @@ RUN npm install
 COPY . .
 
 # Generate Prisma Client and push SQLite schema to create dev.db
-RUN npx prisma generate && npx prisma db push
+RUN DATABASE_URL="file:./dev.db" npx prisma generate && \
+    DATABASE_URL="file:./dev.db" npx prisma db push
 
 # Build Next.js application
-RUN npm run build
+RUN DATABASE_URL="file:./dev.db" npm run build
 
 # Expose port and start
 EXPOSE 3000

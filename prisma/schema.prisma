@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -30,9 +30,9 @@ model Vulnerability {
   scanId      String
   name        String
   severity    String   // Critical, High, Medium, Low, Info
-  description String   @db.Text
+  description String
   tool        String   // Nikto, Nuclei, XSStrike, SQLMap
-  proof       String?  @db.Text
+  proof       String?
   createdAt   DateTime @default(now())
   Scan        Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
 }

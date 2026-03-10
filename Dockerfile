@@ -48,8 +48,8 @@ RUN npm install
 # Copy application code
 COPY . .
 
-# Generate Prisma Client (assuming SQLite is used for demo, ensuring DB is accessible)
-RUN npx prisma generate
+# Generate Prisma Client and push SQLite schema to create dev.db
+RUN npx prisma generate && npx prisma db push
 
 # Build Next.js application
 RUN npm run build

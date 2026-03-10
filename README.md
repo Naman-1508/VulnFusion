@@ -1,112 +1,113 @@
-# VulnFusion — Setup & Deployment Guide
+<div align="center">
+  <img src="public/favicon.ico" alt="VulnFusion Logo" width="120" />
+  <h1>VulnFusion</h1>
+  <p><strong>Continuous Attack Surface Intelligence & Vulnerability Mapping</strong></p>
+  
+  <p>
+    <a href="#overview">Overview</a> •
+    <a href="#architecture">Architecture</a> •
+    <a href="#features">Features</a> •
+    <a href="#deployment">Deployment</a> •
+    <a href="#local-development">Local Setup</a>
+  </p>
 
-## Quick Start (Local Development)
+  <p>
+    <!-- REPLACE '#' WITH YOUR ACTUAL RENDER URL LATER -->
+    <strong>🔴 Live Sandbox Deployment:</strong> <a href="#">[Insert Deployed URL Here]</a>
+  </p>
+</div>
 
-### Prerequisites
-- Node.js 18+
-- Docker Desktop (for PostgreSQL)
-- npm
+<hr />
 
-### 1. Start the PostgreSQL database
-```bash
-docker-compose up -d
-```
+## 🛡️ Overview
 
-### 2. Push the database schema
-```bash
-npx prisma db push
-```
+**VulnFusion** is an enterprise-grade Vulnerability Assessment and Penetration Testing (VAPT) orchestrator. Moving beyond traditional single-tool execution, VulnFusion provides a centralized, high-performance command center that asynchronously aggregates data streams from five distinct, industry-standard security engines. 
 
-### 3. Start the development server
-```bash
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
-
-## Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-DATABASE_URL="postgresql://vulnfusion:vulnfusionpassword@localhost:5432/vulnfusiondb?schema=public"
-```
+Designed with a premium, data-dense Palantir-inspired interface, it transforms raw terminal outputs into highly actionable intelligence cards, custom Data Visualizations, and PDF reports.
 
 ---
 
-## Security Tools Installation
+## 🏗️ Architecture
 
-VulnFusion calls these tools from the system `$PATH`. If they are not installed, it falls back to realistic **mock data** for demo purposes.
+The platform runs on a modern decoupled stack optimized for containerized deployment:
 
-| Tool | Install Command |
-|------|----------------|
-| **Subfinder** | [Go](https://github.com/projectdiscovery/subfinder) — `go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
-| **Nikto** | `git clone https://github.com/sullo/nikto` |
-| **Nuclei** | `go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest` |
-| **SQLMap** | `pip install sqlmap` or clone from [sqlmap.org](https://sqlmap.org) |
-| **XSStrike** | `pip install xsstrike` |
+- **Frontend Core:** Next.js 14 (App Router), React, TypeScript
+- **UI Engine:** Tailwind CSS, Framer Motion (Hardware-accelerated animations), Lucide Icons
+- **Data Layer:** Prisma ORM
+- **Containerization:** Docker (Debian bullseye-slim) injecting Go, Python3, and Perl
 
-> **Without these tools installed, VulnFusion will still show a full demo scan with realistic mock vulnerabilities.**
+### ⚡ Integrated Intelligence Engines
 
----
-
-## Demo Targets (Intentionally Vulnerable)
-
-- **DVWA** — `http://dvwa.example.com`
-- **OWASP Juice Shop** — `http://juice-shop.example.com`
-- **VulnWeb** — `http://testphp.vulnweb.com`
+VulnFusion comes pre-configured to execute and parse outputs from the following utilities:
+1. **Nuclei (ProjectDiscovery):** High-speed, template-based vulnerability scanner.
+2. **Subfinder (ProjectDiscovery):** Passive subdomain enumeration.
+3. **SQLMap:** Automatic SQL injection detection and database fingerprinting.
+4. **XSStrike:** Intelligent XSS payload generation and fuzzing.
+5. **Nikto:** Comprehensive web server misconfiguration scanning.
 
 ---
 
-## Production Deployment (Vercel + Supabase)
+## ✨ Features
 
-### Database (Supabase)
-1. Create a project at [supabase.com](https://supabase.com)
-2. Get your `DATABASE_URL` from **Settings → Database → Connection string**
-
-### App (Vercel)
-```bash
-npm install -g vercel
-vercel --prod
-```
-Set the `DATABASE_URL` environment variable in Vercel project settings.
-
-> **Note:** Security scanner execution via `child_process` won't work on Vercel's serverless functions. For full scanner functionality, deploy on a VPS (e.g., DigitalOcean, Railway) with the tools installed.
+- **Command Center Dashboard:** Real-time tracking of active and historical scans, metrics, and targets.
+- **Glassmorphic UI:** Deep dark mode aesthetics with ambient radiant orbs, complex bento-box layouts, and noise overlays. 
+- **Bespoke Visualizations:** Zero-dependency SVG donut charts calculating threat distribution seamlessly.
+- **Evidence Extraction:** Direct retrieval of execution traces and matched reproduction steps.
+- **Dockerized Execution Context:** The included `Dockerfile` ensures that the Node environment compiles and seamlessly binds the CLI dependencies (Go, Perl, Python) required for authentic execution in production environments.
 
 ---
 
-## Project Structure
+## 🚀 Deployment (Production)
 
-```
-src/
-  app/
-    page.tsx               # Landing page
-    dashboard/page.tsx     # Dashboard + scan form
-    scan/[id]/page.tsx     # Scan results & report
-    api/
-      scan/route.ts        # POST - start new scan
-      scans/route.ts       # GET - list all scans
-      scans/[id]/route.ts  # GET - single scan details
-  lib/
-    prisma.ts              # Prisma singleton
-    orchestrator.ts        # Scan pipeline controller
-    scanners/
-      subfinder.ts         # Subdomain discovery
-      nikto.ts             # Web server scanning
-      nuclei.ts            # CVE detection
-      sqlmap.ts            # SQL injection
-      xsstrike.ts          # XSS detection
-  components/
-    SeverityBadge.tsx      # Color-coded severity labels
-    SeverityChart.tsx      # Recharts donut chart
+To achieve **genuine** security results, VulnFusion must be deployed in an environment capable of executing CLI binaries. We provide a tailored `Dockerfile` and `render.yaml` for a free seamless deployment on **Render.com**.
 
-prisma/schema.prisma       # DB schema
-docker-compose.yml         # PostgreSQL container
-```
+### One-Click Render Deployment
+
+1. **Commit and Push** this repository to your GitHub account:
+   ```bash
+   git add .
+   git commit -m "Initial VulnFusion Release"
+   git push origin main
+   ```
+2. Log into [Render](https://render.com) and create a **New Web Service**.
+3. Connect your GitHub repository.
+4. Render will automatically detect the `Dockerfile` and build the container, pulling in Go, NodeJS, Python, and the security toolchain.
+5. Select the **Free** tier.
+6. Once deployed, **copy the URL and paste it at the top of this README.**
+
+*Note: In local development on Windows machines without the tools installed on the PATH, the backend will elegantly fallback to high-quality mock data arrays to prevent application crashes and allow UI development.*
 
 ---
 
-## Disclaimer
+## 💻 Local Development
 
-> ⚠️ **This tool is intended strictly for educational purposes and authorized security testing environments.** Unauthorized use against systems you do not own or have explicit permission to test is illegal and unethical.
+If you wish to modify the UI or backend logic locally:
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/vulnfusion.git
+   cd vulnfusion
+   ```
+
+2. **Install Node dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Initialize Prisma (SQLite Default for local):**
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+
+4. **Launch the Development Server:**
+   ```bash
+   npm run dev
+   ```
+   *Navigate to `http://localhost:3000` to access the console.*
+
+---
+
+<div align="center">
+  <p><i>Developed for advanced security posture management. Use responsibly and only on authorized targets.</i></p>
+</div>

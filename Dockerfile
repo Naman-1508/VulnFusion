@@ -55,6 +55,9 @@ RUN DATABASE_URL="file:./dev.db" npx prisma generate && \
 # Build Next.js application
 RUN DATABASE_URL="file:./dev.db" npm run build
 
+# Ensure Database is found at runtime
+ENV DATABASE_URL="file:./dev.db"
+
 # Expose port and start
 EXPOSE 3000
 CMD ["npm", "start"]

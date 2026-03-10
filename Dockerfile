@@ -8,13 +8,17 @@ RUN apt-get update && apt-get install -y \
     python-is-python3 \
     perl \
     wget \
-    git \
-    golang && \
+    git && \
     rm -rf /var/lib/apt/lists/*
+
+# Install modern Go (1.21) directly instead of outdated Debian package
+RUN wget https://go.dev/dl/go1.21.6.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.21.6.linux-amd64.tar.gz && \
+    rm go1.21.6.linux-amd64.tar.gz
 
 # Setup Go environment for ProjectDiscovery tools
 ENV GOPATH=/root/go
-ENV PATH=$PATH:/root/go/bin
+ENV PATH=$PATH:/usr/local/go/bin:/root/go/bin
 
 # 1. Install Subfinder & Nuclei
 RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \

@@ -14,10 +14,12 @@ export async function runFullScan(targetUrl: string, existingScanId?: string) {
   try {
     // Step 1: Subdomain Discovery
     const subdomains = await runSubfinder(targetUrl);
-    if (subdomains.length > 0) {
+    // Deduplicate subdomains manually for SQLite since skipDuplicates is not supported
+    const uniqueSubdomains = Array.from(new Set(subdomains));
+    
+    if (uniqueSubdomains.length > 0) {
       await prisma.subdomain.createMany({
-        data: subdomains.map(domain => ({ scanId: scan.id, domain })),
-        skipDuplicates: true,
+        data: uniqueSubdomains.map(domain => ({ scanId: scan.id, domain })),
       });
     }
 

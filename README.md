@@ -12,7 +12,8 @@
   </p>
 
   <p>
-    <strong>🔴 Live Sandbox Deployment:</strong> <a href="https://vulnfusion.onrender.com">https://vulnfusion.onrender.com</a>
+    <!-- REPLACE '#' WITH YOUR ACTUAL RENDER URL LATER -->
+    <strong>🔴 Live Sandbox Deployment:</strong> <a href="#">[Insert Deployed URL Here]</a>
   </p>
 </div>
 

@@ -34,7 +34,7 @@ RUN git clone --depth 1 https://github.com/sullo/nikto.git /opt/nikto && \
 
 # 4. Install XSStrike
 RUN git clone --depth 1 https://github.com/s0md3v/XSStrike.git /opt/xsstrike && \
-    pip3 install -r /opt/xsstrike/requirements.txt --break-system-packages && \
+    pip3 install -r /opt/xsstrike/requirements.txt && \
     echo '#!/bin/bash\npython3 /opt/xsstrike/xsstrike.py "$@"' > /usr/local/bin/xsstrike && \
     chmod +x /usr/local/bin/xsstrike
 

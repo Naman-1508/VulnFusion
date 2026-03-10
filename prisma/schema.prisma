@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Scan {
+  id              String          @id @default(cuid())
+  targetUrl       String
+  status          String          @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  subdomains      Subdomain[]
+  vulnerabilities Vulnerability[]
+}
+
+model Subdomain {
+  id        String   @id @default(cuid())
+  scanId    String
+  domain    String
+  createdAt DateTime @default(now())
+  Scan      Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+}
+
+model Vulnerability {
+  id          String   @id @default(cuid())
+  scanId      String
+  name        String
+  severity    String   // Critical, High, Medium, Low, Info
+  description String   @db.Text
+  tool        String   // Nikto, Nuclei, XSStrike, SQLMap
+  proof       String?  @db.Text
+  createdAt   DateTime @default(now())
+  Scan        Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+}

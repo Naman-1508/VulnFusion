@@ -1,36 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VulnFusion — Setup & Deployment Guide
 
-## Getting Started
+## Quick Start (Local Development)
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- Docker Desktop (for PostgreSQL)
+- npm
 
+### 1. Start the PostgreSQL database
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker-compose up -d
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Push the database schema
+```bash
+npx prisma db push
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Start the development server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+Create a `.env` file in the project root:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+DATABASE_URL="postgresql://vulnfusion:vulnfusionpassword@localhost:5432/vulnfusiondb?schema=public"
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Security Tools Installation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+VulnFusion calls these tools from the system `$PATH`. If they are not installed, it falls back to realistic **mock data** for demo purposes.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Tool | Install Command |
+|------|----------------|
+| **Subfinder** | [Go](https://github.com/projectdiscovery/subfinder) — `go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
+| **Nikto** | `git clone https://github.com/sullo/nikto` |
+| **Nuclei** | `go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest` |
+| **SQLMap** | `pip install sqlmap` or clone from [sqlmap.org](https://sqlmap.org) |
+| **XSStrike** | `pip install xsstrike` |
+
+> **Without these tools installed, VulnFusion will still show a full demo scan with realistic mock vulnerabilities.**
+
+---
+
+## Demo Targets (Intentionally Vulnerable)
+
+- **DVWA** — `http://dvwa.example.com`
+- **OWASP Juice Shop** — `http://juice-shop.example.com`
+- **VulnWeb** — `http://testphp.vulnweb.com`
+
+---
+
+## Production Deployment (Vercel + Supabase)
+
+### Database (Supabase)
+1. Create a project at [supabase.com](https://supabase.com)
+2. Get your `DATABASE_URL` from **Settings → Database → Connection string**
+
+### App (Vercel)
+```bash
+npm install -g vercel
+vercel --prod
+```
+Set the `DATABASE_URL` environment variable in Vercel project settings.
+
+> **Note:** Security scanner execution via `child_process` won't work on Vercel's serverless functions. For full scanner functionality, deploy on a VPS (e.g., DigitalOcean, Railway) with the tools installed.
+
+---
+
+## Project Structure
+
+```
+src/
+  app/
+    page.tsx               # Landing page
+    dashboard/page.tsx     # Dashboard + scan form
+    scan/[id]/page.tsx     # Scan results & report
+    api/
+      scan/route.ts        # POST - start new scan
+      scans/route.ts       # GET - list all scans
+      scans/[id]/route.ts  # GET - single scan details
+  lib/
+    prisma.ts              # Prisma singleton
+    orchestrator.ts        # Scan pipeline controller
+    scanners/
+      subfinder.ts         # Subdomain discovery
+      nikto.ts             # Web server scanning
+      nuclei.ts            # CVE detection
+      sqlmap.ts            # SQL injection
+      xsstrike.ts          # XSS detection
+  components/
+    SeverityBadge.tsx      # Color-coded severity labels
+    SeverityChart.tsx      # Recharts donut chart
+
+prisma/schema.prisma       # DB schema
+docker-compose.yml         # PostgreSQL container
+```
+
+---
+
+## Disclaimer
+
+> ⚠️ **This tool is intended strictly for educational purposes and authorized security testing environments.** Unauthorized use against systems you do not own or have explicit permission to test is illegal and unethical.

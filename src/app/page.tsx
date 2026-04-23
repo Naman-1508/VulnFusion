@@ -1,205 +1,198 @@
 "use client";
-import Link from "next/link";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { Shield, Server, Activity, Bug, Database, Globe, ChevronRight, Binary, Lock, Box } from "lucide-react";
+
+import { motion } from 'framer-motion';
+import { Shield, Zap, Globe, Lock, Cpu, BarChart3, ChevronRight, Terminal } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Home() {
-  const { scrollY } = useScroll();
-  const y1 = useTransform(scrollY, [0, 1000], [0, 200]);
-  const y2 = useTransform(scrollY, [0, 1000], [0, -100]);
-
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <div className="bg-orb-1" />
-      <div className="bg-orb-2" />
-      
-      {/* Premium Navbar */}
-      <header className="fixed top-0 z-40 w-full border-b border-white/5 bg-background/50 backdrop-blur-xl supports-[backdrop-filter]:bg-background/20">
-        <div className="container mx-auto flex h-20 items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
-              <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/20" />
-              <Shield className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-white">Vuln<span className="text-cyan-400">Fusion</span></span>
+    <div className="min-h-screen bg-[#020617] text-slate-100 selection:bg-cyan-500/30 overflow-hidden">
+      {/* 3D GRID BACKGROUND */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div 
+          className="absolute inset-0 opacity-[0.15]" 
+          style={{
+            backgroundImage: `linear-gradient(to right, #1e293b 1px, transparent 1px), linear-gradient(to bottom, #1e293b 1px, transparent 1px)`,
+            backgroundSize: '40px 40px',
+            transform: 'perspective(1000px) rotateX(60deg) translateY(-200px) scale(2)',
+            transformOrigin: 'top'
+          }}
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent"></div>
+      </div>
+
+      {/* AMBIENT GLOWS */}
+      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[150px] rounded-full"></div>
+      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-600/10 blur-[150px] rounded-full"></div>
+
+      <nav className="relative z-50 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white flex items-center justify-center rounded-xl rotate-3 shadow-[0_0_20px_rgba(255,255,255,0.3)]">
+            <Shield className="text-black" size={24} />
           </div>
-          <nav className="flex items-center gap-8">
-            <Link href="/dashboard" className="text-sm font-medium text-slate-400 transition-colors hover:text-cyan-400">Platform</Link>
-            <Link href="/dashboard" className="text-sm font-medium text-slate-400 transition-colors hover:text-cyan-400">Architecture</Link>
-            <Link 
-              href="/dashboard"
-              className="group relative inline-flex h-10 items-center justify-center rounded-full bg-slate-800 px-6 text-sm font-medium text-white transition-all hover:bg-slate-700"
-            >
-              <span className="relative z-10 flex items-center gap-2">Initialize Console <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
-              <div className="absolute inset-0 rounded-full ring-1 ring-inset ring-white/10" />
-              <div className="absolute -inset-0.5 -z-10 rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 opacity-0 blur transition-opacity duration-300 group-hover:opacity-40" />
-            </Link>
-          </nav>
+          <span className="text-xl font-black tracking-tighter uppercase italic">VulnFusion <span className="text-cyan-400">Pro</span></span>
         </div>
-      </header>
+        <div className="hidden md:flex items-center gap-8 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          <Link href="#features" className="hover:text-cyan-400 transition-colors">Tactical Capabilities</Link>
+          <Link href="#arch" className="hover:text-cyan-400 transition-colors">Node Network</Link>
+          <Link href="/dashboard" className="px-5 py-2 border border-white/10 rounded-full hover:bg-white hover:text-black transition-all">Command Dashboard</Link>
+        </div>
+      </nav>
 
-      <main className="pt-32 pb-24">
-        {/* Massive Hero Section */}
-        <section className="container mx-auto px-6 pt-20 pb-32 text-center">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: "easeOut" }} className="relative z-10">
-            <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-1.5 text-xs font-medium text-cyan-300 backdrop-blur-md">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-500"></span>
-              </span>
-              Engine v2.0 Next-Gen Architecture Deployed
-            </div>
-            
-            <h1 className="mx-auto mb-8 max-w-5xl text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-[5.5rem] leading-[1.1]">
-              Continuous Attack Surface <br className="hidden md:block" />
-              <span className="text-gradient-cyan">Intelligence & Mapping</span>
-            </h1>
-            
-            <p className="mx-auto mb-12 max-w-2xl text-lg text-slate-400 leading-relaxed font-light">
-              VulnFusion orchestrates military-grade security engines (Nuclei, SQLMap, XSStrike, Subfinder) into a singular, unified threat intelligence platform. 
-              Gain absolute visibility over your infrastructure vulnerabilities instantly.
-            </p>
-
-            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/dashboard" className="group relative inline-flex h-14 w-full items-center justify-center rounded-xl bg-white px-8 text-base font-bold text-slate-900 transition-all hover:scale-105 active:scale-95 sm:w-auto shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_-15px_rgba(14,165,233,0.5)]">
-                Access Command Center
-                <ArrowRightIcon className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
+      {/* HERO SECTION */}
+      <section className="relative z-10 pt-20 pb-32 px-6">
+        <div className="max-w-5xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-[0.3em] mb-10 shadow-[0_0_30px_rgba(34,211,238,0.1)]"
+          >
+            <Zap size={14} fill="currentColor" className="animate-pulse" />
+            Distributed Security Intelligence v2.0
           </motion.div>
 
-          {/* Abstract Interface Mockup */}
-          <motion.div style={{ y: y2 }} className="relative mx-auto mt-24 max-w-6xl z-0 perspective-[2000px]">
-            <motion.div initial={{ rotateX: 20, opacity: 0, y: 50 }} animate={{ rotateX: 0, opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.2 }}
-              className="glass-panel overflow-hidden rounded-2xl border border-slate-700/50 shadow-2xl shadow-cyan-900/20 relative"
-            >
-              {/* Header */}
-              <div className="flex h-12 items-center justify-between border-b border-white/5 bg-slate-900/50 px-4">
-                <div className="flex gap-2"><div className="h-3 w-3 rounded-full bg-rose-500"/><div className="h-3 w-3 rounded-full bg-amber-500"/><div className="h-3 w-3 rounded-full bg-emerald-500"/></div>
-                <div className="text-xs font-mono text-slate-500">vF-CORE_ANALYTICS // active_scan</div>
+          <motion.h1 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-6xl md:text-8xl font-black tracking-tighter text-white mb-8 leading-[0.9]"
+          >
+            THE NEW ERA OF <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">OFFENSIVE SCANNING</span>
+          </motion.h1>
+
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-slate-400 text-lg md:text-xl max-w-3xl mx-auto mb-12 font-medium leading-relaxed"
+          >
+            VulnFusion bypasses traditional constraints by leveraging high-performance GitHub Cloud nodes. 
+            Real-time vulnerability streaming, interactive command logs, and zero-latency analysis.
+          </motion.p>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-6"
+          >
+            <Link href="/dashboard" className="group relative">
+              <div className="absolute -inset-1 bg-cyan-400 rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+              <div className="relative px-10 py-5 bg-white text-black font-black uppercase tracking-widest rounded-xl flex items-center gap-3 transition-transform active:scale-95">
+                <Terminal size={20} fill="currentColor" />
+                Initialize Console
+                <ChevronRight size={18} />
               </div>
-              {/* Body */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-px bg-white/5">
-                {/* Sidebar */}
-                <div className="bg-slate-900/80 p-6 col-span-1 hidden md:flex flex-col gap-4">
-                  <div className="h-8 w-2/3 rounded-md bg-slate-800 animate-pulse" />
-                  <div className="h-4 w-full rounded-md bg-slate-800/50" />
-                  <div className="h-4 w-4/5 rounded-md bg-slate-800/50" />
-                  <div className="h-4 w-5/6 rounded-md bg-slate-800/50" />
-                  <div className="mt-8 h-32 w-full rounded-xl bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-white/5 flex items-center justify-center pb-4 pt-4">
-                    <div className="relative w-16 h-16 rounded-full border-4 border-slate-800 flex items-center justify-center">
-                       <span className="text-xs font-bold text-cyan-400">92%</span>
-                       <svg className="absolute inset-0 w-full h-full -rotate-90"><circle cx="50%" cy="50%" r="45%" fill="none" stroke="#0ea5e9" strokeWidth="10%" strokeDasharray="100 100" strokeDashoffset="20"></circle></svg>
-                    </div>
+            </Link>
+            <Link href="#arch" className="px-10 py-5 bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest rounded-xl hover:bg-white/10 transition-all backdrop-blur-xl">
+              Platform Architecture
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* FEATURE GRID */}
+      <section id="features" className="relative z-10 py-32 px-6 bg-black/40 border-y border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard 
+              icon={<Globe className="text-cyan-400" />}
+              title="Global Node Network"
+              desc="Scans are executed across distributed cloud agents, ensuring high availability and zero local resource usage."
+            />
+            <FeatureCard 
+              icon={<Cpu className="text-blue-400" />}
+              title="Tech Fingerprinting"
+              desc="Automatically detects target stack components (WordPress, PHP, JS) to deploy specialized assessment modules."
+            />
+            <FeatureCard 
+              icon={<Lock className="text-purple-400" />}
+              title="Encrypted Intelligence"
+              desc="Results are streamed through a secure Supabase tunnel directly to your dashboard with military-grade encryption."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ARCHITECTURE PREVIEW */}
+      <section id="arch" className="relative z-10 py-32 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-20">
+          <div className="flex-1">
+            <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-white mb-8 italic uppercase">
+              Distributed <span className="text-cyan-400">Orchestration</span>
+            </h2>
+            <div className="space-y-8">
+              <ArchStep number="01" title="Target Initiation" desc="User submits URL via the Command Center UI." />
+              <ArchStep number="02" title="Agent Dispatch" desc="GitHub Action runners spin up fresh Ubuntu containers." />
+              <ArchStep number="03" title="Assessment Phase" desc="Nuclei, SQLMap, and Nikto execute in parallel." />
+              <ArchStep number="04" title="Real-time Stream" desc="Findings are piped back to your dashboard via WebSockets." />
+            </div>
+          </div>
+          <div className="flex-1 relative">
+            <div className="absolute -inset-4 bg-cyan-500/20 blur-3xl rounded-full"></div>
+            <div className="relative aspect-square bg-[#0f172a] border border-white/10 rounded-[40px] overflow-hidden p-8 shadow-2xl">
+               <div className="h-full border border-white/5 rounded-[24px] bg-black/40 p-6 font-mono text-[10px] text-cyan-400/60 leading-relaxed">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>
+                    <span className="text-rose-500 uppercase font-black">Live Data Stream</span>
                   </div>
-                </div>
-                {/* Main Content */}
-                <div className="col-span-1 md:col-span-3 bg-slate-950 p-6 flex flex-col gap-6">
-                  <div className="flex justify-between items-center">
-                    <div className="h-6 w-1/3 rounded-md bg-slate-800" />
-                    <div className="h-6 w-24 rounded-full bg-emerald-500/20 border border-emerald-500/30" />
+                  <div className="space-y-1">
+                    <p>[09:42:11] INITIALIZING WORKER_NODE_7...</p>
+                    <p>[09:42:12] TARGET_RESOLVED: testphp.vulnweb.com</p>
+                    <p>[09:42:15] RUNNING_ENGINE: NUCLEI_ASSESSOR</p>
+                    <p className="text-white">[09:42:18] FINDING_DETECTED: CVE-2024-XXXX</p>
+                    <p>[09:42:20] PIPE_ESTABLISHED: SUPABASE_REALTIME</p>
+                    <p className="text-cyan-400">[09:42:22] SYNCING_MANIFEST...</p>
+                    <p>[09:42:25] AGENT_IDLE: AWAITING_NEXT_COMMAND</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    {[1,2,3].map(i => (
-                      <div key={i} className="h-24 rounded-xl border border-white/5 bg-slate-900/50 p-4 flex flex-col justify-between">
-                         <div className="h-3 w-8 rounded-full bg-slate-800"/>
-                         <div className="h-8 w-16 rounded-md bg-slate-700"/>
-                      </div>
+                  {/* GRAPHIC OVERLAY */}
+                  <div className="mt-12 flex justify-between items-end h-32 gap-1">
+                    {[40, 70, 45, 90, 65, 30, 85, 50, 95, 40, 70].map((h, i) => (
+                      <motion.div 
+                        key={i}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${h}%` }}
+                        transition={{ repeat: Infinity, duration: 1, repeatType: 'reverse', delay: i * 0.1 }}
+                        className="flex-1 bg-gradient-to-t from-cyan-500/20 to-cyan-400 rounded-t-sm"
+                      />
                     ))}
                   </div>
-                  <div className="flex-1 rounded-xl border border-white/5 bg-slate-900/40 p-4">
-                    <div className="space-y-3">
-                      {[1,2,3,4].map(i => (
-                        <div key={i} className="flex items-center gap-4 border-b border-white/5 pb-3">
-                          <div className={`h-2 w-2 rounded-full ${i===1?'bg-red-500':i===2?'bg-orange-500':'bg-blue-500'}`} />
-                          <div className="h-3 w-1/4 rounded bg-slate-700"/>
-                          <div className="h-3 w-1/2 rounded bg-slate-800"/>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {/* Scanline effect over mockup */}
-              <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px] opacity-20"/>
-            </motion.div>
-          </motion.div>
-        </section>
-
-        {/* Bento Box Feature Grid */}
-        <section className="container mx-auto px-6 py-24">
-          <div className="mb-16">
-            <h2 className="text-3xl font-bold text-white mb-4">Unified Attack Surface Intelligence</h2>
-            <p className="text-slate-400 max-w-2xl text-lg">Five distinct security engines running asynchronously, combining their data streams into a single, cohesive threat model.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Large Card */}
-            <div className="col-span-1 md:col-span-2 glass-card rounded-3xl p-8 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500"><Shield className="w-48 h-48" /></div>
-              <div className="relative z-10 w-full h-full flex flex-col justify-between">
-                <div>
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 mb-6 border border-rose-500/20">
-                    <Server className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">Nuclei Template Engine</h3>
-                  <p className="text-slate-400 leading-relaxed max-w-md">Execute thousands of YAML-based vulnerability templates to detect misconfigurations, default credentials, and critical CVEs across your entire infrastructure in milliseconds.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Small Stack */}
-            <div className="col-span-1 flex flex-col gap-6">
-              <div className="glass-card rounded-3xl p-6 flex-1 relative overflow-hidden group">
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 mb-4 border border-cyan-500/20">
-                  <Globe className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-bold text-white mb-2">Passive Subfinder</h3>
-                <p className="text-sm text-slate-400">Lightning-fast passive subdomain enumeration utilizing multiple global data sources.</p>
-              </div>
-              <div className="glass-card rounded-3xl p-6 flex-1 relative overflow-hidden group">
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400 mb-4 border border-violet-500/20">
-                  <Database className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-bold text-white mb-2">Advanced SQLMap</h3>
-                <p className="text-sm text-slate-400">Automated deep SQL injection detection and database fingerprinting.</p>
-              </div>
-            </div>
-
-            {/* Bottom Row */}
-            <div className="col-span-1 glass-card rounded-3xl p-6">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 mb-4 border border-emerald-500/20">
-                <Activity className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-bold text-white mb-2">XSStrike Payload Fuzzer</h3>
-              <p className="text-sm text-slate-400">Intelligent XSS detection using multiple payload generation algorithms.</p>
-            </div>
-            
-            <div className="col-span-1 md:col-span-2 glass-card rounded-3xl p-6 relative overflow-hidden">
-               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-violet-500/5 opacity-50" />
-               <div className="relative z-10 flex flex-col justify-center h-full sm:flex-row sm:items-center sm:justify-between">
-                 <div>
-                   <h3 className="text-2xl font-bold text-white mb-2">Ready to secure your perimeter?</h3>
-                   <p className="text-slate-400">Deploy VulnFusion and run comprehensive VAPT assessments.</p>
-                 </div>
-                 <Link href="/dashboard" className="mt-6 sm:mt-0 inline-flex h-12 items-center justify-center rounded-xl bg-white/10 px-8 text-sm font-bold text-white backdrop-blur-md border border-white/20 transition-all hover:bg-white/20 whitespace-nowrap">
-                    Launch Platform
-                 </Link>
                </div>
             </div>
-
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="relative z-10 py-12 px-8 border-t border-white/5 text-center">
+        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">
+          &copy; 2024 VulnFusion // Terminal Grade Security
+        </p>
+      </footer>
     </div>
   );
 }
 
-function ArrowRightIcon(props: any) {
+function FeatureCard({ icon, title, desc }: any) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M5 12h14M12 5l7 7-7 7" />
-    </svg>
+    <div className="group p-8 rounded-[32px] bg-white/[0.02] border border-white/5 hover:border-cyan-500/40 hover:bg-white/[0.05] transition-all duration-500">
+      <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+        {icon}
+      </div>
+      <h3 className="text-xl font-black text-white mb-4 uppercase tracking-tight italic">{title}</h3>
+      <p className="text-slate-400 text-sm leading-relaxed font-medium">{desc}</p>
+    </div>
+  );
+}
+
+function ArchStep({ number, title, desc }: any) {
+  return (
+    <div className="flex gap-6 group">
+      <div className="text-2xl font-black text-slate-800 group-hover:text-cyan-500/40 transition-colors tabular-nums">{number}</div>
+      <div>
+        <h4 className="text-white font-black uppercase tracking-tight mb-1">{title}</h4>
+        <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>
+      </div>
+    </div>
   );
 }

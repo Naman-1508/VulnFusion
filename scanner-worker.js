@@ -6,8 +6,17 @@ const supabaseKey = process.env.SUPABASE_KEY;
 const scanUrl = process.env.SCAN_URL;
 const scanId = process.env.SCAN_ID;
 
+console.log('--- SCANNER WORKER STARTING ---');
+console.log('Target URL:', scanUrl);
+console.log('Scan ID:', scanId);
+
 if (!supabaseUrl || !supabaseKey || !scanUrl || !scanId) {
-  console.error("Missing required environment variables");
+  console.error("Missing required environment variables:", {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseKey,
+    hasScanUrl: !!scanUrl,
+    hasScanId: !!scanId
+  });
   process.exit(1);
 }
 
@@ -16,19 +25,21 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function log(message) {
   const timestamp = new Date().toLocaleTimeString();
   console.log(`[${timestamp}] ${message}`);
-  await supabase.from('scan_logs').insert([{
+  const { error } = await supabase.from('scan_logs').insert([{
     scan_id: scanId,
     message: message
   }]);
+  if (error) console.error(`[SUPABASE ERROR] Failed to log message:`, error.message);
 }
 
 async function saveFinding(tool, severity, data) {
-  await supabase.from('findings').insert([{
+  const { error } = await supabase.from('findings').insert([{
     scan_id: scanId,
     tool,
     severity,
     data
   }]);
+  if (error) console.error(`[SUPABASE ERROR] Failed to save finding for ${tool}:`, error.message);
 }
 
 function runCommand(cmd, args) {

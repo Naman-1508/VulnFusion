@@ -113,7 +113,7 @@ async function main() {
 
     if (targetFolders.length === 0) {
       await log("No specific tech matches. Falling back to baseline configuration.");
-      targetFolders = ['misconfiguration/', 'exposures/'];
+      targetFolders = ['vulnerabilities/', 'misconfiguration/', 'exposures/'];
     }
 
     await log(`Phase 2: Engaging Smart Engines with paths: ${[...new Set(targetFolders)].join(', ')}`);
@@ -137,8 +137,9 @@ async function main() {
       try {
         await log("Engaging Nikto Engine...");
         const { stdout } = await runCommand('nikto', ['-h', scanUrl, '-maxtime', '300']);
-        if (stdout.includes('Vulnerability:')) {
-            await saveFinding("Nikto", "Medium", { raw: stdout });
+        const findings = stdout.split('\n').filter(line => line.includes('+ '));
+        for (const f of findings) {
+            await saveFinding("Nikto", "Medium", { raw: f.trim() });
         }
         await log("Nikto assessment complete.");
       } catch (e) { await log(`Nikto Engine Error: ${e.message}`); }

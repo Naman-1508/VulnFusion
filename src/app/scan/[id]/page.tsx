@@ -251,12 +251,20 @@ export default function ScanPage({ params }: { params: Promise<{ id: string }> }
                     <div className="h-[500px] flex flex-col items-center justify-center text-center bg-white/[0.01] border-2 border-dashed border-white/5 rounded-3xl p-12 overflow-hidden relative group">
                       <div className="absolute inset-0 bg-cyan-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       <div className="relative mb-6">
-                        <Search size={64} className="text-slate-700 animate-pulse" />
+                        {scan.status === 'COMPLETED' ? (
+                          <CheckCircle2 size={64} className="text-emerald-500" />
+                        ) : (
+                          <Search size={64} className="text-slate-700 animate-pulse" />
+                        )}
                         <div className="absolute inset-0 bg-cyan-500/20 blur-2xl rounded-full"></div>
                       </div>
-                      <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Listening for vulnerabilities...</h2>
+                      <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
+                        {scan.status === 'COMPLETED' ? 'Assessment Complete' : 'Listening for vulnerabilities...'}
+                      </h2>
                       <p className="text-slate-500 max-w-sm leading-relaxed text-sm">
-                        As soon as the engines detect a weakness, it will manifest here in real-time.
+                        {scan.status === 'COMPLETED' 
+                          ? 'All automated engines have finished. No high-risk vulnerabilities were identified in the primary target surface.' 
+                          : 'As soon as the engines detect a weakness, it will manifest here in real-time.'}
                       </p>
                       
                       {/* SIMULATED SCAN WAVE */}

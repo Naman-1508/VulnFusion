@@ -31,6 +31,7 @@ interface Finding {
   tool: string;
   severity: string;
   data: any;
+  url?: string; // Added optional url
   created_at: string;
 }
 

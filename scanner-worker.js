@@ -48,11 +48,14 @@ function runCommand(cmd, args) {
     let stdout = "";
     let stderr = "";
 
+    proc.on('error', (err) => {
+      console.error(`[COMMAND ERROR] Failed to start ${cmd}:`, err.message);
+      resolve({ code: 1, stdout: "", stderr: err.message });
+    });
+
     proc.stdout.on('data', (data) => {
       const line = data.toString();
       stdout += line;
-      // If we are in nuclei, we handle JSON lines elsewhere, 
-      // but for generic tools we can log progress
     });
 
     proc.stderr.on('data', (data) => {

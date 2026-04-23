@@ -51,8 +51,13 @@ jobs:
       - name: Update Templates (if needed)
         run: ./bin/nuclei -ut -silent
 
-      - name: Install Dependencies
+      - name: Install Node Dependencies
         run: npm ci
+
+      - name: Install OS Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 perl python3-pip
 
       - name: Run Scan Worker
         env:

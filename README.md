@@ -1,104 +1,67 @@
-<div align="center">
-  <h1>🛡️ VulnFusion</h1>
-  <p><strong>Continuous Attack Surface Intelligence & Vulnerability Mapping</strong></p>
-  
-  <p>
-    <a href="#overview">Overview</a> •
-    <a href="#architecture">Architecture</a> •
-    <a href="#features">Features</a> •
-    <a href="#deployment">Deployment</a> •
-    <a href="#local-development">Local Setup</a>
-  </p>
+# 🛡️ VulnFusion
 
-  <p>
-    <strong>🟢 Live Deployment:</strong> <a href="#">[Add Railway URL here after deploy]</a>
-  </p>
-</div>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Naman-1508/VulnFusion/main/public/logo.png" alt="VulnFusion Logo" width="200"/>
+</p>
 
-<hr />
+<p align="center">
+  <strong>Next-Gen Distributed Vulnerability Orchestration & Real-Time Intelligence</strong>
+</p>
 
-## 🛡️ Overview
-
-**VulnFusion** is an enterprise-grade Vulnerability Assessment and Penetration Testing (VAPT) orchestrator. It provides a centralized command center that asynchronously aggregates data from five distinct, industry-standard security engines.
-
-Designed with a premium, data-dense interface, it transforms raw scanner outputs into actionable intelligence cards and data visualizations.
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/Supabase-Realtime-emerald?style=for-the-badge&logo=supabase" alt="Supabase"/>
+  <img src="https://img.shields.io/badge/GitHub-Actions-blue?style=for-the-badge&logo=github-actions" alt="GitHub Actions"/>
+  <img src="https://img.shields.io/badge/Framer-Motion-pink?style=for-the-badge&logo=framer" alt="Framer Motion"/>
+</p>
 
 ---
 
-## 🏗️ Architecture
+## 🚀 The Vision
+**VulnFusion** is not just a scanner; it's a high-performance orchestration engine designed to bridge the gap between heavy security tools and modern web experiences. By offloading complex security compute to distributed cloud workers, VulnFusion provides real-time, industrial-strength intelligence without the wait.
 
-- **Frontend:** Next.js 14 (App Router), React, TypeScript
-- **UI:** Tailwind CSS, Framer Motion, Lucide Icons
-- **Database:** Prisma ORM + SQLite
-- **Deployment:** Railway (Nixpacks — no Docker required)
+## 🏗️ Pro Architecture (Zero-Cost)
+VulnFusion leverages a unique "Tri-Cloud" architecture to remain free forever while delivering premium performance:
 
-### ⚡ Integrated VAPT Engines
+- **Frontend/API (Vercel)**: Handles the mission-control dashboard and job orchestration.
+- **Intelligence Core (GitHub Actions)**: Every scan triggers a temporary, high-power Ubuntu runner to execute Nuclei, SQLMap, and more.
+- **Data Nerve-Center (Supabase)**: Streams findings and raw logs directly to your browser using WebSockets (Realtime).
 
-1. **Nuclei** — Template-based vulnerability scanner (ProjectDiscovery)
-2. **Subfinder** — Passive subdomain enumeration (ProjectDiscovery)
-3. **SQLMap** — SQL injection detection and exploitation
-4. **XSStrike** — Intelligent XSS payload fuzzer
-5. **Nikto** — Web server misconfiguration scanner
-
----
-
-## ✨ Features
-
-- **Command Center Dashboard** — Real-time scan tracking, metrics, assessment history
-- **Glassmorphic UI** — Deep dark mode with ambient orbs, bento-box layouts and noise overlays
-- **SVG Donut Charts** — Zero-dependency threat distribution visualizations
-- **Evidence Extraction** — Execution traces and reproduction steps per finding
-- **Local Binary System** — Tools run from `bin/` folder, no system-level installs required
-
----
-
-## 🚀 Deployment (Railway)
-
-Railway auto-detects the `nixpacks.toml` and handles everything — Python3, Perl, binary downloads, Prisma, and the Next.js build.
-
-### Steps
-
-1. **Push to GitHub:**
-   ```bash
-   git add .
-   git commit -m "Deploy: VulnFusion on Railway"
-   git push origin main
-   ```
-2. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
-3. Select `VulnFusion` → Railway auto-detects `nixpacks.toml`
-4. Click **Deploy** — done!
-5. Copy your Railway URL and update the Live Deployment link at the top of this README.
-
-> **No Dockerfile. No env vars needed.** Railway uses `nixpacks.toml` which handles Python3, Perl, binary downloads, and the database setup automatically.
-
----
-
-## 💻 Local Development
-
-```bash
-# 1. Clone the repo
-git clone https://github.com/Naman-1508/VulnFusion.git
-cd VulnFusion
-
-# 2. Install deps + auto-clone sqlmap, xsstrike, nikto into bin/
-npm install
-
-# 3. Download nuclei.exe and subfinder.exe manually into bin/
-# nuclei:    https://github.com/projectdiscovery/nuclei/releases/latest
-# subfinder: https://github.com/projectdiscovery/subfinder/releases/latest
-
-# 4. Init database
-npx prisma generate
-npx prisma db push
-
-# 5. Run
-npm run dev
+```mermaid
+graph LR
+    User((User)) --> NextJS[Next.js Dashboard]
+    NextJS --> GH[GitHub Dispatch]
+    GH --> Worker[GitHub Action Runner]
+    Worker --> Tools[Nuclei / SQLMap / Nikto]
+    Tools --> DB[(Supabase)]
+    DB -- Realtime Stream --> NextJS
 ```
 
-Navigate to `http://localhost:3000`
+## ✨ Key Features
+- **⚡ Smart Engine**: Fingerprints the target tech stack first to avoid wasting time on irrelevant tests.
+- **📡 Live Execution Trace**: Watch the raw terminal output of security tools directly in your browser.
+- **🛡️ Multi-Engine Parallelism**: Simultaneously engages Nuclei, SQLMap, XSStrike, and Nikto.
+- **🎨 Cinematic UI**: A high-end command center built with Framer Motion and custom CSS glassmorphism.
+
+## 🛠️ Powered By
+- **Discovery**: Subfinder, HTTPX
+- **Vulnerability Research**: Nuclei (Smart Filtering)
+- **Deep Assessment**: SQLMap, Nikto, XSStrike
+- **Backend**: Next.js 15, Prisma, Supabase Realtime
 
 ---
 
-<div align="center">
-  <p><i>Use responsibly. Only scan systems you have explicit permission to test.</i></p>
-</div>
+## 💖 Built with Love
+Contributed with ❤️ by **[Naman](https://github.com/Naman-1508)**.
+
+> "Security is not a product, but a process." - Bruce Schneier
+
+---
+
+### 📝 Setup & Deployment
+For full setup instructions, please refer to the [Pro Deployment Guide](deploy_guide_pro.md).
+
+1. Clone the repo
+2. Create Supabase project & run `supabase_schema.sql`
+3. Add GitHub PAT and Supabase keys to `.env.local`
+4. Push and let the engines roar! 🚀

@@ -112,8 +112,8 @@ async function main() {
     });
 
     if (targetFolders.length === 0) {
-      await log("No specific tech matches. Falling back to baseline configuration.");
-      targetFolders = ['vulnerabilities/', 'misconfiguration/', 'exposures/'];
+      await log("No specific tech matches. Falling back to high-intensity baseline.");
+      targetFolders = ['vulnerabilities/', 'misconfiguration/', 'exposures/', 'default-logins/'];
     }
 
     await log(`Phase 2: Engaging Smart Engines with paths: ${[...new Set(targetFolders)].join(', ')}`);

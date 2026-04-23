@@ -237,16 +237,40 @@ async function main() {
     // Run Tier 3 while Tier 2 is running
     const tier3 = Promise.allSettled([runNikto(), runSqlMap(), runXSStrike()]);
     
-    await new Promise((res) => smartNuclei.on('close', res));
+    // Wait for everything to finish
+    await new Promise((resolve) => {
+      if (smartNuclei.killed || smartNuclei.exitCode !== null) {
+        resolve(null);
+      } else {
+        smartNuclei.on('close', resolve);
+      }
+    });
+    
     await tier3;
 
-    await log("Scan sequence complete.");
-    await supabase.from('scans').update({ status: 'COMPLETED' }).eq('id', scanId);
+    await log("Scan sequence complete. Synchronizing final status...");
+    
+    // Explicitly await the final update
+    const { error: completeError } = await supabase
+      .from('scans')
+      .update({ status: 'COMPLETED' })
+      .eq('id', scanId);
+
+    if (completeError) {
+      console.error("Database Update Error:", completeError.message);
+    } else {
+      await log("Status locked: COMPLETED");
+    }
     
   } catch (error) {
     console.error("Worker Error:", error);
     await log(`FATAL ERROR: ${error.message}`);
     await supabase.from('scans').update({ status: 'FAILED', error: error.message }).eq('id', scanId);
+  } finally {
+    // Crucial: Give the database 2 seconds to receive the last messages before GH Action kills the process
+    await new Promise(res => setTimeout(res, 2000));
+    console.log("--- SCANNER WORKER SHUTDOWN ---");
+    process.exit(0);
   }
 }
 

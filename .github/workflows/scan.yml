@@ -7,7 +7,7 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout Code
@@ -19,33 +19,40 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install Node Dependencies
+      - name: Cache Security Tools
+        id: cache-tools
+        uses: actions/cache@v4
+        with:
+          path: bin/
+          key: ${{ runner.os }}-security-tools-v3
+
+      - name: Cache Nuclei Templates
+        id: cache-templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuclei-templates
+          key: ${{ runner.os }}-nuclei-templates
+
+      - name: Install Tools (if not cached)
+        if: steps.cache-tools.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p bin
+          # Nuclei
+          wget -q https://github.com/projectdiscovery/nuclei/releases/download/v3.3.10/nuclei_3.3.10_linux_amd64.zip -O nuclei.zip
+          unzip -o nuclei.zip -d bin/ && chmod +x bin/nuclei
+          # Subfinder
+          wget -q https://github.com/projectdiscovery/subfinder/releases/download/v2.6.7/subfinder_2.6.7_linux_amd64.zip -O subfinder.zip
+          unzip -o subfinder.zip -d bin/ && chmod +x bin/subfinder
+          # SQLMap & Nikto
+          git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git bin/sqlmap-dir
+          git clone --depth 1 https://github.com/sullo/nikto.git bin/nikto-dir
+          rm *.zip
+
+      - name: Update Templates (if needed)
+        run: ./bin/nuclei -ut -silent
+
+      - name: Install Dependencies
         run: npm ci
-
-      - name: Install Go
-        run: |
-          wget https://go.dev/dl/go1.22.2.linux-amd64.tar.gz
-          sudo tar -C /usr/local -xzf go1.22.2.linux-amd64.tar.gz
-          echo "/usr/local/go/bin" >> $GITHUB_PATH
-          echo "$HOME/go/bin" >> $GITHUB_PATH
-
-      - name: Install OS Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y nikto perl python3 python3-pip curl wget
-
-      - name: Install Python Tools
-        run: |
-          pip3 install sqlmap xsstrike --break-system-packages
-
-      - name: Install Go Tools
-        run: |
-          go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-          go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-          go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
-
-      - name: Update Nuclei Templates
-        run: nuclei -update-templates -silent
 
       - name: Run Scan Worker
         env:
@@ -53,4 +60,5 @@ jobs:
           SCAN_ID: ${{ github.event.client_payload.scan_id }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          PATH: ${{ github.workspace }}/bin:$PATH
         run: node scanner-worker.js

@@ -15,7 +15,12 @@ import {
   Lock,
   Activity,
   Zap,
-  LayoutDashboard
+  LayoutDashboard,
+  Bug,
+  Database,
+  Eye,
+  Crosshair,
+  Server
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,7 +36,7 @@ interface Finding {
   tool: string;
   severity: string;
   data: any;
-  url?: string; // Added optional url
+  url?: string;
   created_at: string;
 }
 
@@ -109,305 +114,294 @@ export default function ScanPage({ params }: { params: Promise<{ id: string }> }
   );
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 selection:bg-cyan-500/30">
-      {/* BACKGROUND DECORATION */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/20 blur-[120px] rounded-full"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/20 blur-[120px] rounded-full"></div>
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-150 contrast-150"></div>
-      </div>
-
-      {/* HEADER */}
-      <header className="relative border-b border-white/5 bg-black/20 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="group flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all border border-white/5">
-              <LayoutDashboard size={18} className="text-slate-400 group-hover:text-cyan-400" />
-              <span className="text-sm font-medium text-slate-400 group-hover:text-white uppercase tracking-widest">Back to Hub</span>
-            </Link>
-            <div className="h-8 w-px bg-white/10"></div>
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-tighter mb-1">
-                <Activity size={12} />
-                Scanning Live Target
-              </div>
-              <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                {scan.url}
-                <Globe size={16} className="text-slate-500" />
-              </h1>
+    <div className="min-h-screen bg-[#020617] text-slate-100 font-inter selection:bg-cyan-500/30 pb-20 overflow-hidden">
+      {/* HUD HEADER */}
+      <header className="fixed top-0 inset-x-0 z-[100] bg-[#020617]/80 backdrop-blur-2xl border-b border-white/5 px-8 h-20 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <Link href="/dashboard" className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white hover:text-black transition-all group">
+            <LayoutDashboard size={20} className="group-hover:scale-110 transition-transform" />
+          </Link>
+          <div className="h-8 w-px bg-white/10"></div>
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <div className={`w-2 h-2 rounded-full ${scan.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-cyan-500 animate-pulse'} shadow-[0_0_10px_rgba(34,211,238,0.5)]`}></div>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 italic">
+                {scan.status === 'COMPLETED' ? 'Mission Success' : 'Live Asset Reconnaissance'}
+              </span>
             </div>
+            <h1 className="text-xl font-black tracking-tighter text-white">
+              {scan.url.replace('https://', '').replace('http://', '')}
+            </h1>
           </div>
+        </div>
 
-          <div className="flex items-center gap-4">
-            <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.2em] border flex items-center gap-2 transition-all duration-500 ${
-              scan.status === 'COMPLETED' 
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' 
-                : scan.status === 'FAILED'
-                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 animate-pulse'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                scan.status === 'COMPLETED' ? 'bg-emerald-400' : scan.status === 'FAILED' ? 'bg-rose-400' : 'bg-cyan-400 shadow-[0_0_8px_cyan]'
-              }`}></div>
-              {scan.status}
-            </div>
-          </div>
+        <div className="hidden md:flex items-center gap-8">
+           <div className="flex flex-col items-end">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Findings</span>
+              <span className="text-xl font-black text-cyan-400 tabular-nums">{findings.length.toString().padStart(2, '0')}</span>
+           </div>
+           <div className="flex flex-col items-end">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Severity Index</span>
+              <span className="text-xl font-black text-rose-500 italic uppercase tracking-tighter">Advanced</span>
+           </div>
+           <div className={`px-6 py-2.5 rounded-full font-black text-xs uppercase tracking-widest transition-all ${
+             scan.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+           }`}>
+             {scan.status}
+           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-10 relative">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* SIDEBAR NAVIGATION */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-2 backdrop-blur-sm">
+      <main className="max-w-[1600px] mx-auto pt-32 px-8 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
+        {/* TACTICAL SIDEBAR */}
+        <div className="lg:col-span-3 space-y-6">
+          <div className="bg-white/[0.02] border border-white/5 rounded-[32px] p-6 backdrop-blur-xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-[60px] rounded-full"></div>
+            
+            <nav className="space-y-2 relative z-10">
               <button 
                 onClick={() => setActiveTab('findings')}
-                className={`w-full flex items-center justify-between px-4 py-4 rounded-xl transition-all ${
-                  activeTab === 'findings' 
-                    ? 'bg-cyan-500/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' 
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${
+                  activeTab === 'findings' ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Shield size={20} className={activeTab === 'findings' ? 'text-cyan-400' : 'text-slate-500'} />
-                  <span className="font-semibold tracking-tight">Vulnerabilities</span>
+                  <Bug size={18} />
+                  <span className="text-sm font-black uppercase tracking-tight italic">Threat Log</span>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${
-                  activeTab === 'findings' ? 'bg-cyan-400 text-black' : 'bg-white/10 text-slate-500'
-                }`}>
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'findings' ? 'bg-cyan-500 text-black' : 'bg-white/5'}`}>
                   {findings.length}
                 </span>
               </button>
               
               <button 
                 onClick={() => setActiveTab('logs')}
-                className={`w-full flex items-center justify-between px-4 py-4 rounded-xl mt-1 transition-all ${
-                  activeTab === 'logs' 
-                    ? 'bg-cyan-500/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' 
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${
+                  activeTab === 'logs' ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Terminal size={20} className={activeTab === 'logs' ? 'text-cyan-400' : 'text-slate-500'} />
-                  <span className="font-semibold tracking-tight">Engine Trace</span>
+                  <Terminal size={18} />
+                  <span className="text-sm font-black uppercase tracking-tight italic">System Output</span>
                 </div>
-                <div className={`w-2 h-2 rounded-full ${logs.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-slate-700'}`}></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
               </button>
-            </div>
-
-            {/* SCAN DETAILS CARD */}
-            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm space-y-6">
-              <div>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-                  <Cpu size={12} /> Scan Metadata
-                </h3>
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Execution ID</span>
-                    <code className="text-xs text-cyan-400/80 bg-cyan-400/5 px-2 py-1 rounded border border-cyan-400/10 truncate">{id}</code>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Started At</span>
-                    <span className="text-xs text-slate-300 font-medium">{new Date(scan.created_at).toLocaleString()}</span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Security Level</span>
-                    <span className="text-xs text-rose-400 font-black flex items-center gap-1 uppercase italic tracking-widest">
-                      <Lock size={12} /> Advanced Pro
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-white/5">
-                <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-500/10 to-cyan-500/10 border border-white/5 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-2 text-white/10 group-hover:text-cyan-400 transition-colors">
-                    <Zap size={24} />
-                  </div>
-                  <h4 className="text-xs font-bold text-white mb-1">Status Report</h4>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    {scan.status === 'COMPLETED' 
-                      ? 'Scan sequence successfully completed. Results verified.' 
-                      : 'Scanner is currently navigating through target attack surface.'}
-                  </p>
-                </div>
-              </div>
-            </div>
+            </nav>
           </div>
 
-          {/* MAIN CONTENT AREA */}
-          <div className="lg:col-span-9">
-            <AnimatePresence mode="wait">
-              {activeTab === 'findings' ? (
-                <motion.div 
-                  key="findings"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-4"
-                >
-                  {findings.length === 0 ? (
-                    <div className="h-[500px] flex flex-col items-center justify-center text-center bg-white/[0.01] border-2 border-dashed border-white/5 rounded-3xl p-12 overflow-hidden relative group">
-                      <div className="absolute inset-0 bg-cyan-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      <div className="relative mb-6">
-                        {scan.status === 'COMPLETED' ? (
-                          <CheckCircle2 size={64} className="text-emerald-500" />
-                        ) : (
-                          <Search size={64} className="text-slate-700 animate-pulse" />
-                        )}
-                        <div className="absolute inset-0 bg-cyan-500/20 blur-2xl rounded-full"></div>
-                      </div>
-                      <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
-                        {scan.status === 'COMPLETED' ? 'Assessment Complete' : 'Listening for vulnerabilities...'}
-                      </h2>
-                      <p className="text-slate-500 max-w-sm leading-relaxed text-sm">
-                        {scan.status === 'COMPLETED' 
-                          ? 'All automated engines have finished. No high-risk vulnerabilities were identified in the primary target surface.' 
-                          : 'As soon as the engines detect a weakness, it will manifest here in real-time.'}
-                      </p>
-                      
-                      {/* SIMULATED SCAN WAVE */}
-                      <div className="mt-12 flex gap-1">
-                        {[...Array(20)].map((_, i) => (
-                          <motion.div 
-                            key={i}
-                            animate={{ height: [4, 20, 4] }}
-                            transition={{ repeat: Infinity, duration: 1.5, delay: i * 0.1 }}
-                            className="w-1 bg-cyan-500/20 rounded-full"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {findings.map((f, i) => (
-                        <motion.div 
-                          key={f.id}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: i * 0.05 }}
-                          className="bg-white/[0.02] border border-white/5 hover:border-cyan-500/30 p-5 rounded-2xl group transition-all"
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className={`p-2.5 rounded-xl ${
-                                f.severity === 'Critical' ? 'bg-rose-500/10 text-rose-400' :
-                                f.severity === 'High' ? 'bg-orange-500/10 text-orange-400' :
-                                f.severity === 'Medium' ? 'bg-amber-500/10 text-amber-400' :
-                                'bg-cyan-500/10 text-cyan-400'
-                              }`}>
-                                <AlertTriangle size={20} />
-                              </div>
-                              <div>
-                                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1 mb-0.5">
-                                  <Zap size={10} className="text-cyan-400" />
-                                  {f.tool}
-                                </div>
-                                <h4 className="font-bold text-white tracking-tight leading-tight uppercase italic">{f.data.info?.name || f.data.template || 'Potential Vulnerability'}</h4>
-                              </div>
-                            </div>
-                            <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest border ${
-                                f.severity === 'Critical' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
-                                f.severity === 'High' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
-                                f.severity === 'Medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                                'bg-cyan-500/10 border-cyan-500/20 text-cyan-400'
-                              }`}>
-                              {f.severity}
-                            </span>
-                          </div>
+          <div className="bg-white/[0.02] border border-white/5 rounded-[32px] p-6 space-y-6">
+            <div>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+                <Crosshair size={12} /> Target Metadata
+              </h3>
+              <div className="space-y-4">
+                <MetadataRow label="ID" value={id.slice(0, 12) + '...'} mono />
+                <MetadataRow label="Launched" value={new Date(scan.created_at).toLocaleTimeString()} />
+                <MetadataRow label="Node" value="GitHub-Ubuntu-LTS" />
+                <MetadataRow label="Engine" value="VulnFusion v2.0" />
+              </div>
+            </div>
 
-                          <div className="space-y-3">
-                            <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
-                              {f.data.info?.description || 'Detected potential security flaw during automated asset inspection.'}
-                            </p>
-                            <div className="p-3 rounded-xl bg-black/40 border border-white/5 font-mono text-[10px] text-slate-300 break-all leading-relaxed relative group/code overflow-hidden">
-                              <div className="text-cyan-400/50 mb-1 flex items-center justify-between">
-                                <span className="uppercase text-[9px] tracking-widest font-black">Target Component</span>
-                                <ChevronRight size={12} />
-                              </div>
-                              {f.data.matched || f.url || scan.url}
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              ) : (
+            <div className="pt-6 border-t border-white/5">
+              <div className="relative h-1 w-full bg-white/5 rounded-full overflow-hidden">
                 <motion.div 
-                  key="logs"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="relative group h-[700px]"
-                >
-                  {/* TERMINAL EFFECTS */}
-                  <div className="absolute inset-0 bg-[#0a0f1d] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
-                    <div className="h-10 bg-white/5 border-b border-white/5 flex items-center px-4 justify-between">
-                      <div className="flex gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-rose-500/30"></div>
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500/30"></div>
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/30"></div>
-                      </div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 italic">
-                        <CheckCircle2 size={12} className="text-emerald-500" />
-                        Authenticated Terminal Session
-                      </div>
-                      <div className="w-8"></div>
-                    </div>
-                    
-                    <div 
-                      ref={scrollRef}
-                      className="h-[calc(100%-40px)] overflow-y-auto p-6 font-mono text-sm space-y-2 scroll-smooth scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent custom-terminal"
-                    >
-                      {/* SCAN LINES EFFECT */}
-                      <div className="fixed inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_2px,3px_100%] z-[1]"></div>
-                      
-                      <div className="text-emerald-500/50 mb-4 animate-pulse">
-                        [SYSTEM INITIALIZED - ROOT PRIVILEGES GRANTED]
-                      </div>
-                      
-                      {logs.length === 0 ? (
-                        <div className="flex items-center gap-3 text-slate-600 italic">
-                          <span className="animate-bounce">_</span>
-                          Waiting for remote worker handshake...
-                        </div>
-                      ) : (
-                        logs.map((log, i) => (
-                          <div key={log.id} className="flex gap-4 group/log border-l border-white/5 pl-4 hover:border-cyan-500/50 transition-colors py-0.5">
-                            <span className="text-[10px] text-slate-600 w-24 shrink-0 font-bold tabular-nums">
-                              {new Date(log.created_at).toLocaleTimeString([], { hour12: false })}
-                            </span>
-                            <span className={`text-[13px] ${
-                              log.message.includes('ERROR') ? 'text-rose-400' :
-                              log.message.includes('Smart') ? 'text-cyan-400' :
-                              log.message.includes('SUCCESS') ? 'text-emerald-400' :
-                              'text-slate-300'
-                            }`}>
-                              {log.message}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                      <div className="h-10"></div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  initial={{ width: 0 }}
+                  animate={{ width: scan.status === 'COMPLETED' ? '100%' : '65%' }}
+                  className="absolute top-0 left-0 h-full bg-gradient-to-r from-cyan-500 to-blue-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]"
+                />
+              </div>
+              <div className="flex justify-between mt-3">
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Scan Progress</span>
+                <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest tabular-nums">
+                   {scan.status === 'COMPLETED' ? '100%' : '65%'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-      </main>
 
-      <style jsx global>{`
-        .custom-terminal::-webkit-scrollbar { width: 4px; }
-        .custom-terminal::-webkit-scrollbar-track { background: transparent; }
-        .custom-terminal::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        .custom-terminal {
-          text-shadow: 0 0 5px rgba(0, 255, 255, 0.2);
-        }
-      `}</style>
+        {/* MAIN DISPLAY AREA */}
+        <div className="lg:col-span-9">
+          <AnimatePresence mode="wait">
+            {activeTab === 'findings' ? (
+              <motion.div 
+                key="findings"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-4 h-[calc(100vh-200px)] overflow-y-auto pr-2 custom-scrollbar"
+              >
+                {findings.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center bg-white/[0.01] border-2 border-dashed border-white/5 rounded-[40px] p-20">
+                    <div className="relative mb-8">
+                       <div className="w-24 h-24 bg-cyan-500/5 rounded-full blur-3xl absolute inset-0"></div>
+                       {scan.status === 'COMPLETED' ? (
+                         <CheckCircle2 size={64} className="text-emerald-500 relative z-10" />
+                       ) : (
+                         <Search size={64} className="text-slate-700 animate-pulse relative z-10" />
+                       )}
+                    </div>
+                    <h2 className="text-2xl font-black text-white mb-3 tracking-tighter uppercase italic">
+                      {scan.status === 'COMPLETED' ? 'Perimeter Clean' : 'Scanning Surface...'}
+                    </h2>
+                    <p className="text-slate-500 max-w-sm leading-relaxed text-sm font-medium">
+                      {scan.status === 'COMPLETED' 
+                        ? 'Assessment successfully synchronized. No critical entry points were identified in this session.' 
+                        : 'Deploying distributed agents to identify potential vulnerabilities in real-time.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-10">
+                    {findings.map((f, i) => (
+                      <FindingCard key={f.id} finding={f} index={i} targetUrl={scan.url} />
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="logs"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="h-[calc(100vh-200px)] flex flex-col"
+              >
+                <div className="flex-1 bg-[#0a0f1d] border border-white/10 rounded-[32px] overflow-hidden flex flex-col shadow-2xl relative">
+                  <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/[0.02] to-transparent pointer-events-none"></div>
+                  
+                  <div className="h-12 bg-white/5 border-b border-white/5 flex items-center px-6 justify-between">
+                    <div className="flex items-center gap-4">
+                       <div className="flex gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full bg-rose-500/20 border border-rose-500/30"></div>
+                          <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/30"></div>
+                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/30"></div>
+                       </div>
+                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 italic">Console_Stream.log</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
+                       <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400">Piping Live Output</span>
+                    </div>
+                  </div>
+
+                  <div 
+                    ref={scrollRef}
+                    className="flex-1 p-6 font-mono text-[11px] leading-relaxed overflow-y-auto custom-scrollbar selection:bg-cyan-500/30"
+                  >
+                    <div className="space-y-1.5">
+                      {logs.map((log, i) => (
+                        <div key={log.id} className="group flex gap-4">
+                          <span className="text-slate-700 w-20 shrink-0 tabular-nums">[{new Date(log.created_at).toLocaleTimeString()}]</span>
+                          <span className={`${
+                            log.message.includes('Error') ? 'text-rose-400' :
+                            log.message.includes('complete') ? 'text-emerald-400' :
+                            log.message.includes('Phase') ? 'text-cyan-400 font-bold underline decoration-cyan-500/30 underline-offset-4' :
+                            'text-slate-300'
+                          }`}>
+                            {log.message}
+                          </span>
+                        </div>
+                      ))}
+                      {scan.status !== 'COMPLETED' && (
+                        <div className="flex gap-4 items-center animate-pulse mt-4">
+                           <span className="text-slate-700 w-20 shrink-0">--:--:--</span>
+                           <span className="text-cyan-500 font-black tracking-widest">_ AWAITING_OUTPUT...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
     </div>
+  );
+}
+
+function MetadataRow({ label, value, mono = false }: { label: string, value: string, mono?: boolean }) {
+  return (
+    <div className="flex justify-between items-center">
+      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{label}</span>
+      <span className={`text-[11px] font-black ${mono ? 'font-mono text-cyan-400' : 'text-slate-200'}`}>{value}</span>
+    </div>
+  );
+}
+
+function FindingCard({ finding, index, targetUrl }: { finding: Finding, index: number, targetUrl: string }) {
+  const isCritical = finding.severity === 'Critical' || finding.severity === 'High';
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      className={`group relative p-6 rounded-[32px] border transition-all duration-500 hover:scale-[1.02] active:scale-[0.98] ${
+        isCritical 
+          ? 'bg-rose-500/[0.03] border-rose-500/10 hover:border-rose-500/40' 
+          : 'bg-white/[0.02] border-white/5 hover:border-cyan-500/40'
+      }`}
+    >
+      {/* GLOW EFFECT */}
+      <div className={`absolute -inset-1 rounded-[34px] blur opacity-0 group-hover:opacity-20 transition duration-500 ${
+        isCritical ? 'bg-rose-500' : 'bg-cyan-500'
+      }`}></div>
+
+      <div className="relative flex flex-col h-full">
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex items-center gap-3">
+            <div className={`p-3 rounded-2xl ${
+              finding.severity === 'Critical' ? 'bg-rose-500/20 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.3)]' :
+              finding.severity === 'High' ? 'bg-orange-500/20 text-orange-400' :
+              finding.severity === 'Medium' ? 'bg-amber-500/20 text-amber-400' :
+              'bg-cyan-500/20 text-cyan-400'
+            }`}>
+              {finding.tool === 'SQLMap' ? <Database size={20} /> : 
+               finding.tool === 'Nikto' ? <Server size={20} /> :
+               <Bug size={20} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{finding.tool}</span>
+                <div className="w-1 h-1 rounded-full bg-slate-800"></div>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{new Date(finding.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <h4 className="font-black text-white leading-none uppercase tracking-tighter italic text-lg group-hover:text-cyan-400 transition-colors">
+                {finding.data.info?.name || finding.data.template || 'Anomaly Detected'}
+              </h4>
+            </div>
+          </div>
+          <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${
+             finding.severity === 'Critical' ? 'bg-rose-500 text-white border-rose-400' :
+             finding.severity === 'High' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+             'bg-white/5 text-slate-400 border-white/10'
+          }`}>
+            {finding.severity}
+          </div>
+        </div>
+
+        <div className="flex-1 space-y-4">
+          <p className="text-[11px] text-slate-400 font-medium leading-relaxed line-clamp-2">
+            {finding.data.info?.description || 'Strategic intelligence suggests a potential exploit path at this component node.'}
+          </p>
+          
+          <div className="p-3 bg-black/40 border border-white/5 rounded-2xl overflow-hidden group/target transition-colors hover:border-white/10">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[8px] font-black text-slate-600 uppercase tracking-[0.3em]">Component_ID</span>
+              <Eye size={10} className="text-slate-700 group-hover/target:text-cyan-400 transition-colors" />
+            </div>
+            <div className="font-mono text-[9px] text-slate-300 break-all leading-relaxed line-clamp-1">
+              {finding.data.matched || finding.url || targetUrl}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+           <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic underline decoration-slate-800 underline-offset-4">View Full Manifest</span>
+           <ChevronRight size={14} className="text-slate-600" />
+        </div>
+      </div>
+    </motion.div>
   );
 }

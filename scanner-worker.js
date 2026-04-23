@@ -116,9 +116,20 @@ async function main() {
       targetFolders = ['vulnerabilities/', 'misconfiguration/', 'exposures/', 'default-logins/'];
     }
 
-    await log(`Phase 2: Engaging Smart Engines with paths: ${[...new Set(targetFolders)].join(', ')}`);
+    await log(`Phase 2: Engaging High-Intensity Nuclei Sweep...`);
     
-    const smartNuclei = spawn('nuclei', ['-u', scanUrl, '-t', ...new Set(targetFolders), '-json', '-silent']);
+    // Run with all default templates for maximum coverage
+    const nucleiArgs = ['-u', scanUrl, '-json', '-silent', '-stats', '-rl', '50'];
+    if (targetFolders.length > 0 && targetFolders[0] !== 'vulnerabilities/') {
+      nucleiArgs.push('-t', ...new Set(targetFolders));
+    }
+
+    const smartNuclei = spawn('nuclei', nucleiArgs);
+    
+    smartNuclei.stderr.on('data', (data) => {
+      console.log(`[NUCLEI SYSTEM]: ${data.toString()}`);
+    });
+
     smartNuclei.stdout.on('data', async (data) => {
         const lines = data.toString().split('\n').filter(Boolean);
         for (const line of lines) {

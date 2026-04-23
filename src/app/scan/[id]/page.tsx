@@ -22,6 +22,7 @@ import {
   Crosshair,
   Server
 } from 'lucide-react';
+import { SeverityChart } from '@/components/SeverityChart';
 import Link from 'next/link';
 
 interface Scan {
@@ -189,20 +190,45 @@ export default function ScanPage({ params }: { params: Promise<{ id: string }> }
             </nav>
           </div>
 
-          <div className="bg-white/[0.02] border border-white/5 rounded-[32px] p-6 space-y-6">
+          <div className="bg-white/[0.02] border border-white/5 rounded-[32px] p-6 space-y-6 relative overflow-hidden group">
+            {scan.status !== 'COMPLETED' && (
+              <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-20">
+                <motion.div 
+                  animate={{ 
+                    rotate: 360,
+                    scale: [1, 1.1, 1]
+                  }}
+                  transition={{ 
+                    rotate: { duration: 10, repeat: Infinity, ease: "linear" },
+                    scale: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+                  }}
+                  className="absolute -top-1/2 -left-1/2 w-[200%] h-[200%] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_340deg,rgba(34,211,238,0.2)_360deg)]"
+                />
+              </div>
+            )}
+
             <div>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2 relative z-10">
+                <Activity size={12} className={scan.status !== 'COMPLETED' ? 'text-cyan-400 animate-pulse' : ''} /> 
+                Severity Distribution
+              </h3>
+              <div className="relative z-10">
+                <SeverityChart vulnerabilities={findings} />
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-white/5 relative z-10">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
                 <Crosshair size={12} /> Target Metadata
               </h3>
               <div className="space-y-4">
                 <MetadataRow label="ID" value={id.slice(0, 12) + '...'} mono />
                 <MetadataRow label="Launched" value={new Date(scan.created_at).toLocaleTimeString()} />
-                <MetadataRow label="Node" value="GitHub-Ubuntu-LTS" />
                 <MetadataRow label="Engine" value="VulnFusion v2.0" />
               </div>
             </div>
 
-            <div className="pt-6 border-t border-white/5">
+            <div className="pt-6 border-t border-white/5 relative z-10">
               <div className="relative h-1 w-full bg-white/5 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
@@ -211,9 +237,9 @@ export default function ScanPage({ params }: { params: Promise<{ id: string }> }
                 />
               </div>
               <div className="flex justify-between mt-3">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Scan Progress</span>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Progress_Index</span>
                 <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest tabular-nums">
-                   {scan.status === 'COMPLETED' ? '100%' : '65%'}
+                   {scan.status === 'COMPLETED' ? '100%' : 'Active'}
                 </span>
               </div>
             </div>
@@ -330,78 +356,153 @@ function MetadataRow({ label, value, mono = false }: { label: string, value: str
 }
 
 function FindingCard({ finding, index, targetUrl }: { finding: Finding, index: number, targetUrl: string }) {
+  const [isOpen, setIsOpen] = useState(false);
   const isCritical = finding.severity === 'Critical' || finding.severity === 'High';
   
+  const displayName = finding.data.name || finding.data.info?.name || finding.data.template || 'Anomaly Detected';
+  const displayDesc = finding.data.description || finding.data.info?.description || 'Strategic intelligence suggests a potential exploit path at this component node.';
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className={`group relative p-6 rounded-[32px] border transition-all duration-500 hover:scale-[1.02] active:scale-[0.98] ${
-        isCritical 
-          ? 'bg-rose-500/[0.03] border-rose-500/10 hover:border-rose-500/40' 
-          : 'bg-white/[0.02] border-white/5 hover:border-cyan-500/40'
-      }`}
-    >
-      {/* GLOW EFFECT */}
-      <div className={`absolute -inset-1 rounded-[34px] blur opacity-0 group-hover:opacity-20 transition duration-500 ${
-        isCritical ? 'bg-rose-500' : 'bg-cyan-500'
-      }`}></div>
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 }}
+        onClick={() => setIsOpen(true)}
+        className={`group relative p-6 rounded-[32px] border cursor-pointer transition-all duration-500 hover:scale-[1.02] active:scale-[0.98] ${
+          isCritical 
+            ? 'bg-rose-500/[0.03] border-rose-500/10 hover:border-rose-500/40' 
+            : 'bg-white/[0.02] border-white/5 hover:border-cyan-500/40'
+        }`}
+      >
+        {/* GLOW EFFECT */}
+        <div className={`absolute -inset-1 rounded-[34px] blur opacity-0 group-hover:opacity-20 transition duration-500 ${
+          isCritical ? 'bg-rose-500' : 'bg-cyan-500'
+        }`}></div>
 
-      <div className="relative flex flex-col h-full">
-        <div className="flex justify-between items-start mb-6">
-          <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-2xl ${
-              finding.severity === 'Critical' ? 'bg-rose-500/20 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.3)]' :
-              finding.severity === 'High' ? 'bg-orange-500/20 text-orange-400' :
-              finding.severity === 'Medium' ? 'bg-amber-500/20 text-amber-400' :
-              'bg-cyan-500/20 text-cyan-400'
-            }`}>
-              {finding.tool === 'SQLMap' ? <Database size={20} /> : 
-               finding.tool === 'Nikto' ? <Server size={20} /> :
-               <Bug size={20} />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{finding.tool}</span>
-                <div className="w-1 h-1 rounded-full bg-slate-800"></div>
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{new Date(finding.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <div className="relative flex flex-col h-full">
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-2xl ${
+                finding.severity === 'Critical' ? 'bg-rose-500/20 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.3)]' :
+                finding.severity === 'High' ? 'bg-orange-500/20 text-orange-400' :
+                finding.severity === 'Medium' ? 'bg-amber-500/20 text-amber-400' :
+                'bg-cyan-500/20 text-cyan-400'
+              }`}>
+                {finding.tool === 'SQLMap' ? <Database size={20} /> : 
+                 finding.tool === 'Nikto' ? <Server size={20} /> :
+                 finding.tool === 'XSStrike' ? <Zap size={20} /> :
+                 <Bug size={20} />}
               </div>
-              <h4 className="font-black text-white leading-none uppercase tracking-tighter italic text-lg group-hover:text-cyan-400 transition-colors">
-                {finding.data.info?.name || finding.data.template || 'Anomaly Detected'}
-              </h4>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{finding.tool}</span>
+                  <div className="w-1 h-1 rounded-full bg-slate-800"></div>
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{new Date(finding.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <h4 className="font-black text-white leading-none uppercase tracking-tighter italic text-lg group-hover:text-cyan-400 transition-colors">
+                  {displayName}
+                </h4>
+              </div>
+            </div>
+            <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${
+               finding.severity === 'Critical' ? 'bg-rose-500 text-white border-rose-400' :
+               finding.severity === 'High' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+               finding.severity === 'Medium' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+               'bg-white/5 text-slate-400 border-white/10'
+            }`}>
+              {finding.severity}
             </div>
           </div>
-          <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${
-             finding.severity === 'Critical' ? 'bg-rose-500 text-white border-rose-400' :
-             finding.severity === 'High' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
-             'bg-white/5 text-slate-400 border-white/10'
-          }`}>
-            {finding.severity}
-          </div>
-        </div>
 
-        <div className="flex-1 space-y-4">
-          <p className="text-[11px] text-slate-400 font-medium leading-relaxed line-clamp-2">
-            {finding.data.info?.description || 'Strategic intelligence suggests a potential exploit path at this component node.'}
-          </p>
-          
-          <div className="p-3 bg-black/40 border border-white/5 rounded-2xl overflow-hidden group/target transition-colors hover:border-white/10">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[8px] font-black text-slate-600 uppercase tracking-[0.3em]">Component_ID</span>
-              <Eye size={10} className="text-slate-700 group-hover/target:text-cyan-400 transition-colors" />
-            </div>
-            <div className="font-mono text-[9px] text-slate-300 break-all leading-relaxed line-clamp-1">
-              {finding.data.matched || finding.url || targetUrl}
+          <div className="flex-1 space-y-4">
+            <p className="text-[11px] text-slate-400 font-medium leading-relaxed line-clamp-2">
+              {displayDesc}
+            </p>
+            
+            <div className="p-3 bg-black/40 border border-white/5 rounded-2xl overflow-hidden group/target transition-colors hover:border-white/10">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[8px] font-black text-slate-600 uppercase tracking-[0.3em]">Component_ID</span>
+                <Eye size={10} className="text-slate-700 group-hover/target:text-cyan-400 transition-colors" />
+              </div>
+              <div className="font-mono text-[9px] text-slate-300 break-all leading-relaxed line-clamp-1">
+                {finding.data.matched || finding.url || targetUrl}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-           <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic underline decoration-slate-800 underline-offset-4">View Full Manifest</span>
-           <ChevronRight size={14} className="text-slate-600" />
+          <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between opacity-50 group-hover:opacity-100 transition-opacity">
+             <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic underline decoration-slate-800 underline-offset-4 group-hover:text-cyan-400 group-hover:decoration-cyan-500/30">Analyze Evidence</span>
+             <ChevronRight size={14} className="text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
+          </div>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+
+      {/* DETAIL MODAL */}
+      <AnimatePresence>
+        {isOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="absolute inset-0 bg-[#020617]/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-[#0a0f1d] border border-white/10 rounded-[40px] overflow-hidden shadow-2xl"
+            >
+              <div className={`h-2 w-full ${isCritical ? 'bg-rose-500' : 'bg-cyan-500'}`}></div>
+              
+              <div className="p-8 md:p-12 overflow-y-auto max-h-[80vh] custom-scrollbar">
+                <div className="flex justify-between items-start mb-8">
+                   <div>
+                     <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs font-black text-cyan-500 uppercase tracking-[0.3em] italic">{finding.tool} REPORT</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/10"></div>
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{new Date(finding.created_at).toLocaleString()}</span>
+                     </div>
+                     <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic">{displayName}</h2>
+                   </div>
+                   <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                      <LayoutDashboard size={24} className="rotate-45" />
+                   </button>
+                </div>
+
+                <div className="space-y-8">
+                   <section>
+                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-4">Tactical Intelligence</h5>
+                      <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl leading-relaxed text-slate-300">
+                         {displayDesc}
+                      </div>
+                   </section>
+
+                   <section>
+                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-4">Raw Evidence Log</h5>
+                      <div className="p-6 bg-black rounded-3xl font-mono text-xs text-emerald-500/80 border border-emerald-500/10 overflow-x-auto whitespace-pre-wrap">
+                         {JSON.stringify(finding.data, null, 2)}
+                      </div>
+                   </section>
+
+                   <div className="flex gap-4 pt-4">
+                      <div className="flex-1 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                         <span className="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Severity</span>
+                         <span className={`text-sm font-black uppercase italic ${isCritical ? 'text-rose-500' : 'text-cyan-500'}`}>{finding.severity}</span>
+                      </div>
+                      <div className="flex-1 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                         <span className="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Status</span>
+                         <span className="text-sm font-black uppercase italic text-white">Unresolved</span>
+                      </div>
+                   </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

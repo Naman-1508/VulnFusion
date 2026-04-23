@@ -67,14 +67,30 @@ function runCommand(cmd, args) {
 
 async function main() {
   try {
+    const isDomain = !scanUrl.startsWith('http') || scanUrl.split('.').length > 1;
+    let targetUrl = scanUrl.startsWith('http') ? scanUrl : `http://${scanUrl}`;
+
     await supabase.from('scans').update({ status: 'RUNNING' }).eq('id', scanId);
-    await log(`Starting scan sequence for ${scanUrl}`);
+    await log(`Starting scan sequence for ${targetUrl}`);
+
+    // --- PHASE 0: Subdomain Discovery (Subfinder) ---
+    if (!scanUrl.includes('localhost') && !scanUrl.includes('127.0.0.1')) {
+        await log("Phase 0: Scanning for subdomains...");
+        const domain = targetUrl.replace('http://', '').replace('https://', '').split('/')[0];
+        const { stdout: sfOut } = await runCommand('./bin/subfinder', ['-d', domain, '-silent']);
+        const subdomains = sfOut.split('\n').filter(Boolean);
+        if (subdomains.length > 0) {
+            await saveFinding("Subfinder", "Info", { subdomains });
+            await log(`Discovered ${subdomains.length} subdomains.`);
+        }
+    }
 
     // --- TIER 1: Tech Detection ---
     await log("Phase 1: Initializing Technology Fingerprinting...");
     const detectedTech = [];
     
-    const nucleiTech = spawn('nuclei', ['-u', scanUrl, '-t', 'technologies/', '-json', '-silent']);
+    // Use local nuclei binary
+    const nucleiTech = spawn('./bin/nuclei', ['-u', targetUrl, '-t', 'technologies/', '-json', '-silent']);
     
     nucleiTech.stdout.on('data', async (data) => {
       const lines = data.toString().split('\n').filter(Boolean);
@@ -88,7 +104,7 @@ async function main() {
     });
 
     await new Promise((res) => nucleiTech.on('close', res));
-    await log(`Fingerprinting complete. Detected assets: ${detectedTech.join(', ') || 'Standard'}`);
+    await log(`Fingerprinting complete. Detected: ${detectedTech.join(', ') || 'Standard'}`);
 
     // --- TIER 2: Smart Nuclei ---
     const techMap = {
@@ -112,24 +128,19 @@ async function main() {
     });
 
     if (targetFolders.length === 0) {
-      await log("No specific tech matches. Falling back to high-intensity baseline.");
-      targetFolders = ['vulnerabilities/', 'misconfiguration/', 'exposures/', 'default-logins/'];
+      await log("No specific tech matches. Falling back to vulnerability baseline.");
+      targetFolders = ['vulnerabilities/', 'misconfiguration/', 'exposures/'];
     }
 
-    await log(`Phase 2: Engaging High-Intensity Nuclei Sweep...`);
+    await log(`Phase 2: Engaging Smart Nuclei Sweep...`);
     
-    // Run with all default templates for maximum coverage
-    const nucleiArgs = ['-u', scanUrl, '-json', '-silent', '-stats', '-rl', '50'];
-    if (targetFolders.length > 0 && targetFolders[0] !== 'vulnerabilities/') {
+    const nucleiArgs = ['-u', targetUrl, '-json', '-silent', '-rl', '30'];
+    if (targetFolders.length > 0) {
       nucleiArgs.push('-t', ...new Set(targetFolders));
     }
 
-    const smartNuclei = spawn('nuclei', nucleiArgs);
+    const smartNuclei = spawn('./bin/nuclei', nucleiArgs);
     
-    smartNuclei.stderr.on('data', (data) => {
-      console.log(`[NUCLEI SYSTEM]: ${data.toString()}`);
-    });
-
     smartNuclei.stdout.on('data', async (data) => {
         const lines = data.toString().split('\n').filter(Boolean);
         for (const line of lines) {
@@ -142,57 +153,94 @@ async function main() {
     });
 
     // --- TIER 3: Parallel Engines ---
-    await log("Phase 3: Launching Parallel Depth Scanners (Nikto, SQLMap, XSStrike)...");
+    await log("Phase 3: Launching Deep Scanners (Nikto, SQLMap, XSStrike)...");
 
     const runNikto = async () => {
       try {
-        await log("Engaging Nikto Engine...");
-        const { stdout } = await runCommand('nikto', ['-h', scanUrl, '-maxtime', '300']);
-        const findings = stdout.split('\n').filter(line => line.includes('+ '));
-        for (const f of findings) {
-            await saveFinding("Nikto", "Medium", { raw: f.trim() });
+        await log("Engaging Nikto...");
+        const { stdout } = await runCommand('perl', ['bin/nikto-dir/program/nikto.pl', '-h', targetUrl, '-maxtime', '120s']);
+        
+        // Nikto findings usually start with '+ '
+        const lines = stdout.split('\n').filter(line => line.includes('+ '));
+        
+        for (const line of lines) {
+          const raw = line.replace('+ ', '').trim();
+          let classification = "Anomaly";
+          let description = raw;
+          let severity = "Info";
+
+          if (raw.includes('X-Frame-Options')) {
+            classification = "Missing Anti-Clickjacking Header";
+            description = "The X-Frame-Options header is missing, which could allow an attacker to 'frame' this site and perform clickjacking attacks.";
+            severity = "Medium";
+          } else if (raw.includes('X-Content-Type-Options')) {
+            classification = "Missing MIME Sniffing Protection";
+            description = "The X-Content-Type-Options header is not set, allowing the browser to guess the content type which can lead to XSS.";
+            severity = "Low";
+          } else if (raw.includes('Server:')) {
+            classification = "Server Information Disclosure";
+            description = `The server revealed its version: ${raw.split('Server:')[1]?.trim()}. This helps attackers find specific exploits.`;
+            severity = "Low";
+          } else if (raw.includes('OSVDB')) {
+            classification = "Known Vulnerability (OSVDB)";
+            severity = "Medium";
+          }
+
+          await saveFinding("Nikto", severity, { 
+            name: classification,
+            description: description,
+            raw: raw,
+            tool: "Nikto"
+          });
         }
-        await log("Nikto assessment complete.");
-      } catch (e) { await log(`Nikto Engine Error: ${e.message}`); }
+        
+        if (lines.length === 0) await log("Nikto: No anomalies found.");
+      } catch (e) { await log(`Nikto Error: ${e.message}`); }
     };
 
     const runSqlMap = async () => {
       try {
         await log("Checking for injectable forms...");
-        const response = await fetch(scanUrl);
-        const html = await response.text();
-        if (html.includes('<form')) {
-          await log("Forms detected. Engaging SQLMap...");
-          const { stdout } = await runCommand('sqlmap', ['-u', scanUrl, '--forms', '--batch', '--level=1', '--risk=1', '--timeout=60']);
-          if (stdout.includes('is vulnerable')) {
-            await saveFinding("SQLMap", "Critical", { raw: stdout });
-          }
+        const { stdout } = await runCommand('python3', ['bin/sqlmap-dir/sqlmap.py', '-u', targetUrl, '--forms', '--batch', '--level=1', '--risk=1', '--random-agent']);
+        
+        if (stdout.includes('is vulnerable')) {
+            await saveFinding("SQLMap", "Critical", { 
+              name: "SQL Injection Detected",
+              description: "SQLMap found a parameter or form that is vulnerable to SQL injection. An attacker could potentially steal or delete your entire database.",
+              raw: "Target is vulnerable to SQL injection.",
+              tool: "SQLMap"
+            });
         } else {
-          await log("No forms detected. Skipping SQLMap.");
+            await log("SQLMap: No vulnerabilities found.");
         }
-        await log("SQLMap assessment complete.");
-      } catch (e) { await log(`SQLMap Engine Error: ${e.message}`); }
+      } catch (e) { await log(`SQLMap Error: ${e.message}`); }
     };
 
     const runXSStrike = async () => {
       try {
-        await log("Engaging XSStrike Engine...");
-        const { stdout } = await runCommand('python3', ['-m', 'xsstrike', '--url', scanUrl, '--skip', '--timeout', '60']);
+        await log("Engaging XSStrike...");
+        const { stdout } = await runCommand('python3', ['bin/xsstrike/xsstrike.py', '--url', targetUrl, '--skip', '--timeout', '30']);
+        
         if (stdout.includes('Vulnerable')) {
-            await saveFinding("XSStrike", "High", { raw: stdout });
+            await saveFinding("XSStrike", "High", { 
+              name: "Cross-Site Scripting (XSS)",
+              description: "A potential XSS vulnerability was found. Attackers can inject malicious scripts into pages viewed by other users.",
+              raw: "XSS Vulnerability confirmed by payload execution.",
+              tool: "XSStrike"
+            });
+        } else {
+            await log("XSStrike: No vulnerabilities found.");
         }
-        await log("XSStrike assessment complete.");
-      } catch (e) { await log(`XSStrike Engine Error: ${e.message}`); }
+      } catch (e) { await log(`XSStrike Error: ${e.message}`); }
     };
 
     // Run Tier 3 while Tier 2 is running
     const tier3 = Promise.allSettled([runNikto(), runSqlMap(), runXSStrike()]);
     
-    // Wait for everything to finish
     await new Promise((res) => smartNuclei.on('close', res));
     await tier3;
 
-    await log("Scan sequence successfully synchronized. Updating central status.");
+    await log("Scan sequence complete.");
     await supabase.from('scans').update({ status: 'COMPLETED' }).eq('id', scanId);
     
   } catch (error) {

@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "setup": "node scripts/setup-tools.js",
-    "postinstall": "prisma generate && (node scripts/setup-tools.js || true)"
+    "lint": "eslint"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

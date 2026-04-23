@@ -1,14 +1,9 @@
-import { exec } from "child_process";
-import util from "util";
+import { runTool } from "../tools-path";
 import { VulnerabilityResult } from "./nikto";
 
-const execPromise = util.promisify(exec);
-
-export async function runXSStrike(targetUrl: string): Promise<VulnerabilityResult[]> {
+export async function runXSStrike(targetUrl: string, log?: (msg: string) => Promise<void>): Promise<VulnerabilityResult[]> {
     try {
-        // Command: python xsstrike.py -u "http://target" --batch
-        const { stdout } = await execPromise(`python xsstrike.py -u "${targetUrl}" --batch`);
-
+        const { stdout } = await runTool("xsstrike", ["-u", targetUrl, "--batch"], log);
         if (stdout.includes("Vulnerable")) {
             return [{
                 name: "Cross-Site Scripting (XSS)",
@@ -18,7 +13,6 @@ export async function runXSStrike(targetUrl: string): Promise<VulnerabilityResul
                 proof: targetUrl,
             }];
         }
-
         return [];
     } catch (error) {
         console.warn("XSStrike execution failed.", error);

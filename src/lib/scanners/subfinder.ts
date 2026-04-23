@@ -1,16 +1,12 @@
-import { exec } from "child_process";
-import util from "util";
+import { runTool } from "../tools-path";
 
-const execPromise = util.promisify(exec);
-
-export async function runSubfinder(targetUrl: string): Promise<string[]> {
+export async function runSubfinder(targetUrl: string, log?: (msg: string) => Promise<void>): Promise<string[]> {
     try {
-        const domain = new URL(targetUrl).hostname;
-        // Command: subfinder -d example.com -silent
-        const { stdout } = await execPromise(`subfinder -d ${domain} -silent`);
-
+        let url = targetUrl;
+        if (!url.startsWith("http")) url = "https://" + url;
+        const domain = new URL(url).hostname;
+        const { stdout } = await runTool("subfinder", ["-d", domain, "-silent"]);
         if (!stdout.trim()) return [];
-
         return stdout.split("\n").map(s => s.trim()).filter(Boolean);
     } catch (error) {
         console.warn("Subfinder execution failed.", error);

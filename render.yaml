@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: vulnfusion
-    env: docker
-    plan: free
-    dockerCommand: npm start
-    envVars:
-      - key: NODE_ENV
-        value: production

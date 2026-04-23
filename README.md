@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="public/favicon.ico" alt="VulnFusion Logo" width="120" />
-  <h1>VulnFusion</h1>
+  <h1>🛡️ VulnFusion</h1>
   <p><strong>Continuous Attack Surface Intelligence & Vulnerability Mapping</strong></p>
   
   <p>
@@ -12,7 +11,7 @@
   </p>
 
   <p>
-    <strong>🔴 Live Sandbox Deployment:</strong> <a href="https://vulnfusion.onrender.com">https://vulnfusion.onrender.com</a>
+    <strong>🟢 Live Deployment:</strong> <a href="#">[Add Railway URL here after deploy]</a>
   </p>
 </div>
 
@@ -20,93 +19,86 @@
 
 ## 🛡️ Overview
 
-**VulnFusion** is an enterprise-grade Vulnerability Assessment and Penetration Testing (VAPT) orchestrator. Moving beyond traditional single-tool execution, VulnFusion provides a centralized, high-performance command center that asynchronously aggregates data streams from five distinct, industry-standard security engines. 
+**VulnFusion** is an enterprise-grade Vulnerability Assessment and Penetration Testing (VAPT) orchestrator. It provides a centralized command center that asynchronously aggregates data from five distinct, industry-standard security engines.
 
-Designed with a premium, data-dense Palantir-inspired interface, it transforms raw terminal outputs into highly actionable intelligence cards, custom Data Visualizations, and PDF reports.
+Designed with a premium, data-dense interface, it transforms raw scanner outputs into actionable intelligence cards and data visualizations.
 
 ---
 
 ## 🏗️ Architecture
 
-The platform runs on a modern decoupled stack optimized for containerized deployment:
+- **Frontend:** Next.js 14 (App Router), React, TypeScript
+- **UI:** Tailwind CSS, Framer Motion, Lucide Icons
+- **Database:** Prisma ORM + SQLite
+- **Deployment:** Railway (Nixpacks — no Docker required)
 
-- **Frontend Core:** Next.js 14 (App Router), React, TypeScript
-- **UI Engine:** Tailwind CSS, Framer Motion (Hardware-accelerated animations), Lucide Icons
-- **Data Layer:** Prisma ORM
-- **Containerization:** Docker (Debian bullseye-slim) injecting Go, Python3, and Perl
+### ⚡ Integrated VAPT Engines
 
-### ⚡ Integrated Intelligence Engines
-
-VulnFusion comes pre-configured to execute and parse outputs from the following utilities:
-1. **Nuclei (ProjectDiscovery):** High-speed, template-based vulnerability scanner.
-2. **Subfinder (ProjectDiscovery):** Passive subdomain enumeration.
-3. **SQLMap:** Automatic SQL injection detection and database fingerprinting.
-4. **XSStrike:** Intelligent XSS payload generation and fuzzing.
-5. **Nikto:** Comprehensive web server misconfiguration scanning.
+1. **Nuclei** — Template-based vulnerability scanner (ProjectDiscovery)
+2. **Subfinder** — Passive subdomain enumeration (ProjectDiscovery)
+3. **SQLMap** — SQL injection detection and exploitation
+4. **XSStrike** — Intelligent XSS payload fuzzer
+5. **Nikto** — Web server misconfiguration scanner
 
 ---
 
 ## ✨ Features
 
-- **Command Center Dashboard:** Real-time tracking of active and historical scans, metrics, and targets.
-- **Glassmorphic UI:** Deep dark mode aesthetics with ambient radiant orbs, complex bento-box layouts, and noise overlays. 
-- **Bespoke Visualizations:** Zero-dependency SVG donut charts calculating threat distribution seamlessly.
-- **Evidence Extraction:** Direct retrieval of execution traces and matched reproduction steps.
-- **Dockerized Execution Context:** The included `Dockerfile` ensures that the Node environment compiles and seamlessly binds the CLI dependencies (Go, Perl, Python) required for authentic execution in production environments.
+- **Command Center Dashboard** — Real-time scan tracking, metrics, assessment history
+- **Glassmorphic UI** — Deep dark mode with ambient orbs, bento-box layouts and noise overlays
+- **SVG Donut Charts** — Zero-dependency threat distribution visualizations
+- **Evidence Extraction** — Execution traces and reproduction steps per finding
+- **Local Binary System** — Tools run from `bin/` folder, no system-level installs required
 
 ---
 
-## 🚀 Deployment (Production)
+## 🚀 Deployment (Railway)
 
-To achieve **genuine** security results, VulnFusion must be deployed in an environment capable of executing CLI binaries. We provide a tailored `Dockerfile` and `render.yaml` for a free seamless deployment on **Render.com**.
+Railway auto-detects the `nixpacks.toml` and handles everything — Python3, Perl, binary downloads, Prisma, and the Next.js build.
 
-### One-Click Render Deployment
+### Steps
 
-1. **Commit and Push** this repository to your GitHub account:
+1. **Push to GitHub:**
    ```bash
    git add .
-   git commit -m "Initial VulnFusion Release"
+   git commit -m "Deploy: VulnFusion on Railway"
    git push origin main
    ```
-2. Log into [Render](https://render.com) and create a **New Web Service**.
-3. Connect your GitHub repository.
-4. Render will automatically detect the `Dockerfile` and build the container, pulling in Go, NodeJS, Python, and the security toolchain.
-5. Select the **Free** tier.
-6. Once deployed, **copy the URL and paste it at the top of this README.**
+2. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
+3. Select `VulnFusion` → Railway auto-detects `nixpacks.toml`
+4. Click **Deploy** — done!
+5. Copy your Railway URL and update the Live Deployment link at the top of this README.
 
-*Note: In local development on Windows machines without the tools installed on the PATH, the backend will elegantly fallback to high-quality mock data arrays to prevent application crashes and allow UI development.*
+> **No Dockerfile. No env vars needed.** Railway uses `nixpacks.toml` which handles Python3, Perl, binary downloads, and the database setup automatically.
 
 ---
 
 ## 💻 Local Development
 
-If you wish to modify the UI or backend logic locally:
+```bash
+# 1. Clone the repo
+git clone https://github.com/Naman-1508/VulnFusion.git
+cd VulnFusion
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/yourusername/vulnfusion.git
-   cd vulnfusion
-   ```
+# 2. Install deps + auto-clone sqlmap, xsstrike, nikto into bin/
+npm install
 
-2. **Install Node dependencies:**
-   ```bash
-   npm install
-   ```
+# 3. Download nuclei.exe and subfinder.exe manually into bin/
+# nuclei:    https://github.com/projectdiscovery/nuclei/releases/latest
+# subfinder: https://github.com/projectdiscovery/subfinder/releases/latest
 
-3. **Initialize Prisma (SQLite Default for local):**
-   ```bash
-   npx prisma generate
-   npx prisma db push
-   ```
+# 4. Init database
+npx prisma generate
+npx prisma db push
 
-4. **Launch the Development Server:**
-   ```bash
-   npm run dev
-   ```
-   *Navigate to `http://localhost:3000` to access the console.*
+# 5. Run
+npm run dev
+```
+
+Navigate to `http://localhost:3000`
 
 ---
 
 <div align="center">
-  <p><i>Developed for advanced security posture management. Use responsibly and only on authorized targets.</i></p>
+  <p><i>Use responsibly. Only scan systems you have explicit permission to test.</i></p>
 </div>

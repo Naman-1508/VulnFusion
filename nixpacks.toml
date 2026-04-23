@@ -1,0 +1,27 @@
+[phases.setup]
+nixPkgs = ["python3", "perl", "wget", "unzip"]
+
+[phases.install]
+cmds = [
+  "npm install --ignore-scripts",
+  # Download Linux nuclei binary
+  "wget -q https://github.com/projectdiscovery/nuclei/releases/download/v3.3.10/nuclei_3.3.10_linux_amd64.zip -O /tmp/nuclei.zip && unzip -o /tmp/nuclei.zip -d /tmp/nuclei_out && mv /tmp/nuclei_out/nuclei bin/nuclei && chmod +x bin/nuclei",
+  # Download Linux subfinder binary
+  "wget -q https://github.com/projectdiscovery/subfinder/releases/download/v2.6.7/subfinder_2.6.7_linux_amd64.zip -O /tmp/subfinder.zip && unzip -o /tmp/subfinder.zip -d /tmp/sfout && mv /tmp/sfout/subfinder bin/subfinder && chmod +x bin/subfinder",
+  # Install XSStrike Python dependencies
+  "pip3 install -r bin/xsstrike/requirements.txt"
+]
+
+[phases.build]
+cmds = [
+  "npx prisma generate",
+  "npx prisma db push",
+  "npm run build"
+]
+
+[start]
+cmd = "npm start"
+
+[variables]
+DATABASE_URL = "file:./dev.db"
+NODE_ENV = "production"

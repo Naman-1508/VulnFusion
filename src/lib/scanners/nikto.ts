@@ -1,7 +1,4 @@
-import { exec } from "child_process";
-import util from "util";
-
-const execPromise = util.promisify(exec);
+import { runTool } from "../tools-path";
 
 export interface VulnerabilityResult {
     name: string;
@@ -11,15 +8,15 @@ export interface VulnerabilityResult {
     proof?: string;
 }
 
-export async function runNikto(targetUrl: string): Promise<VulnerabilityResult[]> {
+export async function runNikto(targetUrl: string, log?: (msg: string) => Promise<void>): Promise<VulnerabilityResult[]> {
     const results: VulnerabilityResult[] = [];
     try {
-        // Command: nikto -h http://example.com -Format json
-        const { stdout } = await execPromise(`nikto -h ${targetUrl} -Format json`);
-
-        // Attempt to parse nikto json output
+        const { stdout } = await runTool("nikto", ["-h", targetUrl, "-Format", "json"], log);
+        if (!stdout || !stdout.trim()) {
+            console.log("[\x1b[33mNIKTO\x1b[0m] No output generated. Engine may be missing or target unreachable.");
+            return [];
+        }
         const data = JSON.parse(stdout);
-
         if (data && data.vulnerabilities) {
             for (const vuln of data.vulnerabilities) {
                 results.push({

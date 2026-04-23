@@ -28,6 +28,11 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.local
+
+# database
+prisma/*.db
+prisma/*.db-journal
 
 # vercel
 .vercel
@@ -35,3 +40,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# internal notes
+project_context.md
+deploy_guide.md
+
+# binaries and tools
+/bin/
+/sqlmap/
+/xsstrike/
+/nikto/
+*.exe
+*.bin
+*.out

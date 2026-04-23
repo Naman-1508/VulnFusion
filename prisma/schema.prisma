@@ -11,6 +11,7 @@ model Scan {
   id              String          @id @default(cuid())
   targetUrl       String
   status          String          @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  logs            String          @default("")
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   subdomains      Subdomain[]

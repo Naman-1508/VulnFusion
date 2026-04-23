@@ -1,63 +1,52 @@
-# Use a heavy Debian-based Node image because we need to compile Go and run Python/Perl
-FROM node:20-bullseye
+# Use a Node.js base image
+FROM node:20-slim
 
-# Install system dependencies for the security tools
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
-    python-is-python3 \
     perl \
     wget \
-    git && \
-    rm -rf /var/lib/apt/lists/*
+    unzip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install modern Go (1.21) directly instead of outdated Debian package
-RUN wget https://go.dev/dl/go1.21.6.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go1.21.6.linux-amd64.tar.gz && \
-    rm go1.21.6.linux-amd64.tar.gz
-
-# Setup Go environment for ProjectDiscovery tools
-ENV GOPATH=/root/go
-ENV PATH=$PATH:/usr/local/go/bin:/root/go/bin
-
-# 1. Install Subfinder & Nuclei
-RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
-    go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-
-# 2. Install SQLMap
-RUN git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap && \
-    ln -s /opt/sqlmap/sqlmap.py /usr/local/bin/sqlmap
-
-# 3. Install Nikto
-RUN git clone --depth 1 https://github.com/sullo/nikto.git /opt/nikto && \
-    ln -s /opt/nikto/program/nikto.pl /usr/local/bin/nikto
-
-# 4. Install XSStrike
-RUN git clone --depth 1 https://github.com/s0md3v/XSStrike.git /opt/xsstrike && \
-    pip3 install -r /opt/xsstrike/requirements.txt && \
-    echo '#!/bin/bash\npython3 /opt/xsstrike/xsstrike.py "$@"' > /usr/local/bin/xsstrike && \
-    chmod +x /usr/local/bin/xsstrike
-
-# Create application directory
+# Set working directory
 WORKDIR /app
 
-# Install Node dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm install
 
-# Copy application code
+# Install dependencies (skip scripts initially to avoid setup-tools failing without binaries)
+RUN npm install --ignore-scripts
+
+# Create bin directory
+RUN mkdir -p bin
+
+# Download Nuclei
+RUN wget -q https://github.com/projectdiscovery/nuclei/releases/download/v3.3.10/nuclei_3.3.10_linux_amd64.zip -O /tmp/nuclei.zip \
+    && unzip -o /tmp/nuclei.zip -d bin/ \
+    && chmod +x bin/nuclei
+
+# Download Subfinder
+RUN wget -q https://github.com/projectdiscovery/subfinder/releases/download/v2.6.7/subfinder_2.6.7_linux_amd64.zip -O /tmp/subfinder.zip \
+    && unzip -o /tmp/subfinder.zip -d bin/ \
+    && chmod +x bin/subfinder
+
+# Copy source code
 COPY . .
 
-# Generate Prisma Client and push SQLite schema to create dev.db
-RUN DATABASE_URL="file:./dev.db" npx prisma generate && \
-    DATABASE_URL="file:./dev.db" npx prisma db push
+# Run the tool setup (clones sqlmap, etc.)
+RUN node scripts/setup-tools.js
 
-# Build Next.js application
-RUN DATABASE_URL="file:./dev.db" npm run build
+# Generate Prisma client
+RUN npx prisma generate
 
-# Ensure Database is found at runtime
-ENV DATABASE_URL="file:./dev.db"
+# Build the Next.js app
+RUN npm run build
 
-# Expose port and start
+# Expose port
 EXPOSE 3000
+
+# Start the application
 CMD ["npm", "start"]

@@ -1,0 +1,56 @@
+name: VulnFusion Security Scan
+
+on:
+  repository_dispatch:
+    types: [run-scan]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Install Go
+        run: |
+          wget https://go.dev/dl/go1.22.2.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf go1.22.2.linux-amd64.tar.gz
+          echo "/usr/local/go/bin" >> $GITHUB_PATH
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Install OS Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nikto perl python3 python3-pip curl wget
+
+      - name: Install Python Tools
+        run: |
+          pip3 install sqlmap xsstrike --break-system-packages
+
+      - name: Install Go Tools
+        run: |
+          go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+          go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+          go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+
+      - name: Update Nuclei Templates
+        run: nuclei -update-templates -silent
+
+      - name: Run Scan Worker
+        env:
+          SCAN_URL: ${{ github.event.client_payload.url }}
+          SCAN_ID: ${{ github.event.client_payload.scan_id }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: node scanner-worker.js

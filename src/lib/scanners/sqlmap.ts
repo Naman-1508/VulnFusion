@@ -1,14 +1,9 @@
-import { exec } from "child_process";
-import util from "util";
+import { runTool } from "../tools-path";
 import { VulnerabilityResult } from "./nikto";
 
-const execPromise = util.promisify(exec);
-
-export async function runSqlMap(targetUrl: string): Promise<VulnerabilityResult[]> {
+export async function runSqlMap(targetUrl: string, log?: (msg: string) => Promise<void>): Promise<VulnerabilityResult[]> {
     try {
-        // Command: sqlmap -u "http://example.com?id=1" --batch
-        const { stdout } = await execPromise(`sqlmap -u "${targetUrl}" --batch`);
-
+        const { stdout } = await runTool("sqlmap", ["-u", targetUrl, "--batch"], log);
         if (stdout.includes("is vulnerable")) {
             return [{
                 name: "SQL Injection",
@@ -18,7 +13,6 @@ export async function runSqlMap(targetUrl: string): Promise<VulnerabilityResult[
                 proof: targetUrl,
             }];
         }
-
         return [];
     } catch (error) {
         console.warn("SQLMap execution failed.", error);

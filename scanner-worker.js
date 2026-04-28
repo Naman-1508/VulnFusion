@@ -49,9 +49,9 @@ async function saveFinding(tool, severity, data) {
   if (error) console.error(`[SUPABASE ERROR] Failed to save finding for ${tool}:`, error.message);
 }
 
-function runCommand(cmd, args) {
+function runCommand(cmd, args, opts = {}) {
   return new Promise((resolve) => {
-    const proc = spawn(cmd, args, { shell: isWin, windowsHide: true });
+    const proc = spawn(cmd, args, { shell: isWin, windowsHide: true, cwd: opts.cwd || undefined });
     let stdout = "";
     let stderr = "";
 
@@ -157,10 +157,14 @@ async function main() {
         await log("Engaging Nikto...");
 
         if (IS_CI) {
-          // --- GITHUB ACTIONS: Run actual Nikto via Perl (Linux, no Defender issues) ---
-          const { stdout, code } = await runCommand(PERL_CMD, [NIKTO_SCRIPT, '-h', targetUrl, '-maxtime', '90s', '-Format', 'txt']);
+          // --- GITHUB ACTIONS: Run actual Nikto via Perl ---
+          // MUST run from nikto's own program directory so it can find its EXECDIR and databases
+          const niktoDir = path.resolve('bin/nikto-dir/program');
+          const { stdout, stderr, code } = await runCommand(PERL_CMD, ['nikto.pl', '-h', targetUrl, '-maxtime', '90s', '-Format', 'txt'], { cwd: niktoDir });
+          console.log('[NIKTO STDERR]', stderr?.slice(0, 500));
+          console.log('[NIKTO STDOUT]', stdout?.slice(0, 500));
           if (code !== 0 && !stdout) {
-            await log("Nikto: No output returned.");
+            await log(`Nikto: Failed (exit ${code}). ${stderr?.slice(0,200)}`);
             return;
           }
           const lines = stdout.split('\n').filter(l => l.startsWith('+ '));
@@ -207,7 +211,14 @@ async function main() {
       try {
         await log("Checking for injectable forms...");
         // Added --crawl so it finds parameters if URL is just a domain
-        const { stdout } = await runCommand(PYTHON_CMD, ['bin/sqlmap/sqlmap.py', '-u', targetUrl, '--forms', '--crawl=1', '--batch', '--level=1', '--risk=1', '--threads=2']);
+        const { stdout } = await runCommand(PYTHON_CMD, [
+          'bin/sqlmap/sqlmap.py', '-u', targetUrl,
+          '--forms', '--crawl=2', '--batch',
+          '--level=2', '--risk=1', '--threads=4',
+          '--timeout=30', '--retries=1'
+        ]);
+
+        console.log('[SQLMAP STDOUT]', stdout?.slice(0, 500));
 
         if (stdout.includes('is vulnerable') || stdout.includes('Payload:')) {
           await saveFinding("SQLMap", "Critical", {
@@ -226,7 +237,12 @@ async function main() {
     const runXSStrike = async () => {
       try {
         await log("Engaging XSStrike...");
-        const { stdout } = await runCommand(PYTHON_CMD, ['bin/xsstrike/xsstrike.py', '-u', targetUrl, '--crawl', '--skip', '--timeout', '10']);
+        const { stdout } = await runCommand(PYTHON_CMD, [
+          'bin/xsstrike/xsstrike.py', '-u', targetUrl,
+          '--crawl', '--skip', '--timeout', '30'
+        ]);
+
+        console.log('[XSSTRIKE STDOUT]', stdout?.slice(0, 500));
 
         if (stdout.includes('Vulnerable') || stdout.includes('Payload:')) {
           await saveFinding("XSStrike", "High", {

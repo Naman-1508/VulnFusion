@@ -3,6 +3,9 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { spawn } from 'child_process';
 import path from 'path';
 
+// Force dynamic rendering - this route spawns background processes and must not be statically analyzed
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -35,9 +38,11 @@ export async function POST(req: NextRequest) {
     }
     
     // 2. Dispatch Local Scanner Worker
+    // IMPORTANT: Path is built dynamically to prevent Turbopack from statically
+    // analyzing and attempting to bundle scanner-worker.js as a module at build time.
     console.log(`Starting local scanner worker for scan ID: ${scan.id}`);
-    
-    const workerPath = path.join(process.cwd(), 'scanner-worker.js');
+    const workerFileName = ['scanner', 'worker.js'].join('-');
+    const workerPath = path.join(process.cwd(), workerFileName);
     
     const workerProcess = spawn('node', [workerPath], {
       detached: true,

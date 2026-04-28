@@ -77,6 +77,15 @@ jobs:
       - name: Install XSStrike Dependencies
         run: pip3 install requests --quiet
 
+      - name: Add tools to PATH
+        run: |
+          echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
+          echo "==> Verifying tool availability..."
+          which python3 && python3 --version
+          which perl && perl --version | head -1
+          which nuclei && nuclei --version || true
+          which subfinder && subfinder --version || true
+
       - name: Run Scan Worker
         env:
           SCAN_URL: ${{ github.event.client_payload.url }}
@@ -85,5 +94,4 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           CI: 'true'
           GITHUB_ACTIONS: 'true'
-          PATH: ${{ github.workspace }}/bin:$PATH
         run: node scanner-worker.js

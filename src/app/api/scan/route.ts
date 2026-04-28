@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       const { spawn } = await import('child_process');
       const { join } = await import('path');
 
-      const workerPath = join(process.cwd(), 'scanner-worker.js');
+      const workerPath = join(process.cwd(), process.env.WORKER_SCRIPT_NAME as string);
       console.log(`Spawning local scanner worker for scan ID: ${scan.id}`);
 
       const workerProcess = spawn('node', [workerPath], {

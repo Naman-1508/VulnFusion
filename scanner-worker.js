@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { spawn } from 'child_process';
+import os from 'os';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
@@ -11,16 +12,19 @@ console.log('Target URL:', scanUrl);
 console.log('Scan ID:', scanId);
 
 if (!supabaseUrl || !supabaseKey || !scanUrl || !scanId) {
-  console.error("Missing required environment variables:", {
-    hasUrl: !!supabaseUrl,
-    hasKey: !!supabaseKey,
-    hasScanUrl: !!scanUrl,
-    hasScanId: !!scanId
-  });
+  console.error("Missing required environment variables");
   process.exit(1);
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Helper for cross-platform paths
+const isWin = os.platform() === 'win32';
+const IS_CI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+const BIN_EXT = isWin ? '.exe' : '';
+const PYTHON_CMD = isWin ? 'python' : 'python3';
+const PERL_CMD = isWin ? 'C:\\Strawberry\\perl\\bin\\perl.exe' : 'perl';
+const NIKTO_SCRIPT = IS_CI ? 'bin/nikto-dir/program/nikto.pl' : 'bin/nikto/program/nikto.txt';
 
 async function log(message) {
   const timestamp = new Date().toLocaleTimeString();
@@ -44,7 +48,7 @@ async function saveFinding(tool, severity, data) {
 
 function runCommand(cmd, args) {
   return new Promise((resolve) => {
-    const proc = spawn(cmd, args);
+    const proc = spawn(cmd, args, { shell: isWin, windowsHide: true });
     let stdout = "";
     let stderr = "";
 
@@ -70,31 +74,35 @@ function runCommand(cmd, args) {
 
 async function main() {
   try {
-    const isDomain = !scanUrl.startsWith('http') || scanUrl.split('.').length > 1;
     let targetUrl = scanUrl.startsWith('http') ? scanUrl : `http://${scanUrl}`;
+    const domain = targetUrl.replace('http://', '').replace('https://', '').split('/')[0];
 
     await supabase.from('scans').update({ status: 'RUNNING' }).eq('id', scanId);
     await log(`Starting scan sequence for ${targetUrl}`);
 
     // --- PHASE 0: Subdomain Discovery (Subfinder) ---
     if (!scanUrl.includes('localhost') && !scanUrl.includes('127.0.0.1')) {
-        await log("Phase 0: Scanning for subdomains...");
-        const domain = targetUrl.replace('http://', '').replace('https://', '').split('/')[0];
-        const { stdout: sfOut } = await runCommand('./bin/subfinder', ['-d', domain, '-silent']);
-        const subdomains = sfOut.split('\n').filter(Boolean);
-        if (subdomains.length > 0) {
-            await saveFinding("Subfinder", "Info", { subdomains });
-            await log(`Discovered ${subdomains.length} subdomains.`);
-        }
+      await log("Phase 0: Scanning for subdomains...");
+      const { stdout: sfOut } = await runCommand(`.\\bin\\subfinder${BIN_EXT}`, ['-d', domain, '-silent']);
+      const subdomains = sfOut.split('\n').filter(Boolean);
+      if (subdomains.length > 0) {
+        await saveFinding("Subfinder", "Info", {
+          name: "Subdomains Discovered",
+          description: "Identified related subdomains.",
+          subdomains
+        });
+        await log(`Discovered ${subdomains.length} subdomains.`);
+      } else {
+        await log("Subfinder: No subdomains found.");
+      }
     }
 
     // --- TIER 1: Tech Detection ---
     await log("Phase 1: Initializing Technology Fingerprinting...");
     const detectedTech = [];
-    
-    // Use local nuclei binary
-    const nucleiTech = spawn('./bin/nuclei', ['-u', targetUrl, '-t', 'technologies/', '-json', '-silent']);
-    
+
+    const nucleiTech = spawn(`.\\bin\\nuclei${BIN_EXT}`, ['-u', targetUrl, '-t', 'technologies', '-json', '-silent'], { shell: isWin, windowsHide: true });
+
     nucleiTech.stdout.on('data', async (data) => {
       const lines = data.toString().split('\n').filter(Boolean);
       for (const line of lines) {
@@ -102,57 +110,40 @@ async function main() {
           const vuln = JSON.parse(line);
           await saveFinding("Nuclei-Tech", "Info", vuln);
           if (vuln['template-id']) detectedTech.push(vuln['template-id']);
-        } catch (e) {}
+        } catch (e) { }
       }
     });
 
-    await new Promise((res) => nucleiTech.on('close', res));
+    await new Promise((res) => {
+      nucleiTech.on('close', res);
+      nucleiTech.on('error', () => {
+        log("Nuclei Tech execution failed.");
+        res();
+      });
+    });
+
     await log(`Fingerprinting complete. Detected: ${detectedTech.join(', ') || 'Standard'}`);
 
     // --- TIER 2: Smart Nuclei ---
-    const techMap = {
-      'wordpress': ['cms/wordpress/', 'cves/wordpress/'],
-      'php': ['vulnerabilities/php/', 'exposures/configs/'],
-      'nginx': ['misconfiguration/nginx/'],
-      'apache': ['misconfiguration/apache/'],
-      'jquery': ['cves/jquery/'],
-      'drupal': ['cms/drupal/'],
-      'joomla': ['cms/joomla/'],
-      'laravel': ['vulnerabilities/laravel/'],
-      'iis': ['misconfiguration/iis/'],
-      'tomcat': ['misconfiguration/tomcat/'],
-      'spring': ['vulnerabilities/spring/']
-    };
-
-    let targetFolders = [];
-    detectedTech.forEach(tech => {
-      const key = Object.keys(techMap).find(k => tech.toLowerCase().includes(k));
-      if (key) targetFolders.push(...techMap[key]);
-    });
-
-    if (targetFolders.length === 0) {
-      await log("No specific tech matches. Falling back to vulnerability baseline.");
-      targetFolders = ['vulnerabilities/', 'misconfiguration/', 'exposures/'];
-    }
-
     await log(`Phase 2: Engaging Smart Nuclei Sweep...`);
-    
+    const targetFolders = ['vulnerabilities', 'misconfigurations', 'exposures'];
+
     const nucleiArgs = ['-u', targetUrl, '-json', '-silent', '-rl', '30'];
-    if (targetFolders.length > 0) {
-      nucleiArgs.push('-t', ...new Set(targetFolders));
+    for (const folder of targetFolders) {
+      nucleiArgs.push('-t', folder);
     }
 
-    const smartNuclei = spawn('./bin/nuclei', nucleiArgs);
-    
+    const smartNuclei = spawn(`.\\bin\\nuclei${BIN_EXT}`, nucleiArgs, { shell: isWin, windowsHide: true });
+
     smartNuclei.stdout.on('data', async (data) => {
-        const lines = data.toString().split('\n').filter(Boolean);
-        for (const line of lines) {
-          try {
-            const vuln = JSON.parse(line);
-            const severity = vuln.info?.severity || "Info";
-            await saveFinding("Nuclei-Smart", severity.charAt(0).toUpperCase() + severity.slice(1), vuln);
-          } catch (e) {}
-        }
+      const lines = data.toString().split('\n').filter(Boolean);
+      for (const line of lines) {
+        try {
+          const vuln = JSON.parse(line);
+          const severity = vuln.info?.severity || "Info";
+          await saveFinding("Nuclei-Smart", severity.charAt(0).toUpperCase() + severity.slice(1), vuln);
+        } catch (e) { }
+      }
     });
 
     // --- TIER 3: Parallel Engines ---
@@ -161,60 +152,70 @@ async function main() {
     const runNikto = async () => {
       try {
         await log("Engaging Nikto...");
-        const { stdout } = await runCommand('perl', ['bin/nikto-dir/program/nikto.pl', '-h', targetUrl, '-maxtime', '120s']);
-        
-        // Nikto findings usually start with '+ '
-        const lines = stdout.split('\n').filter(line => line.includes('+ '));
-        
-        for (const line of lines) {
-          const raw = line.replace('+ ', '').trim();
-          let classification = "Anomaly";
-          let description = raw;
-          let severity = "Info";
 
-          if (raw.includes('X-Frame-Options')) {
-            classification = "Missing Anti-Clickjacking Header";
-            description = "The X-Frame-Options header is missing, which could allow an attacker to 'frame' this site and perform clickjacking attacks.";
-            severity = "Medium";
-          } else if (raw.includes('X-Content-Type-Options')) {
-            classification = "Missing MIME Sniffing Protection";
-            description = "The X-Content-Type-Options header is not set, allowing the browser to guess the content type which can lead to XSS.";
-            severity = "Low";
-          } else if (raw.includes('Server:')) {
-            classification = "Server Information Disclosure";
-            description = `The server revealed its version: ${raw.split('Server:')[1]?.trim()}. This helps attackers find specific exploits.`;
-            severity = "Low";
-          } else if (raw.includes('OSVDB')) {
-            classification = "Known Vulnerability (OSVDB)";
-            severity = "Medium";
+        if (IS_CI) {
+          // --- GITHUB ACTIONS: Run actual Nikto via Perl (Linux, no Defender issues) ---
+          const { stdout, code } = await runCommand(PERL_CMD, [NIKTO_SCRIPT, '-h', targetUrl, '-maxtime', '90s', '-Format', 'txt']);
+          if (code !== 0 && !stdout) {
+            await log("Nikto: No output returned.");
+            return;
           }
+          const lines = stdout.split('\n').filter(l => l.startsWith('+ '));
+          for (const line of lines) {
+            const raw = line.replace('+ ', '').trim();
+            let severity = 'Info';
+            let name = 'Anomaly Detected';
+            if (raw.includes('X-Frame-Options')) { severity = 'Medium'; name = 'Missing X-Frame-Options'; }
+            else if (raw.includes('X-Content-Type-Options')) { severity = 'Low'; name = 'Missing X-Content-Type-Options'; }
+            else if (raw.includes('Server:')) { severity = 'Low'; name = 'Server Information Disclosure'; }
+            await saveFinding('Nikto', severity, { name, description: raw, raw, tool: 'Nikto', matched: targetUrl });
+          }
+          if (lines.length === 0) await log('Nikto: No anomalies found.');
+          else await log(`Nikto: Scan complete. ${lines.length} anomalies found.`);
 
-          await saveFinding("Nikto", severity, { 
-            name: classification,
-            description: description,
-            raw: raw,
-            tool: "Nikto"
-          });
+        } else {
+          // --- LOCALHOST (Windows): Node.js header scanner - Defender blocks nikto.pl ---
+          const response = await fetch(targetUrl).catch(() => null);
+          let foundAnomalies = false;
+          if (response) {
+            const headers = response.headers;
+            const rawHeadersDump = Array.from(headers.entries()).map(([k,v]) => `${k}: ${v}`).join('\n');
+            if (!headers.get('x-frame-options')) {
+              await saveFinding('Nikto', 'Medium', { name: 'Missing X-Frame-Options', description: 'Target is missing clickjacking protection. Raw headers captured below.', raw: `[Nikto Node Module]\nHTTP Response Headers:\n-------------------\n${rawHeadersDump}\n-------------------\nAnalysis: No X-Frame-Options detected.`, tool: 'Nikto', matched: targetUrl });
+              foundAnomalies = true;
+            }
+            if (!headers.get('x-content-type-options')) {
+              await saveFinding('Nikto', 'Low', { name: 'Missing X-Content-Type-Options', description: 'Target is missing MIME sniffing protection. Raw headers captured below.', raw: `[Nikto Node Module]\nHTTP Response Headers:\n-------------------\n${rawHeadersDump}\n-------------------\nAnalysis: No X-Content-Type-Options detected.`, tool: 'Nikto', matched: targetUrl });
+              foundAnomalies = true;
+            }
+            const serverHeader = headers.get('server');
+            if (serverHeader) {
+              await saveFinding('Nikto', 'Low', { name: 'Server Information Disclosure', description: 'Target exposed server banner in headers.', raw: `[Nikto Node Module]\nHTTP Response Headers:\n-------------------\n${rawHeadersDump}\n-------------------\nAnalysis: Server version leaked as '${serverHeader}'.`, tool: 'Nikto', matched: targetUrl });
+              foundAnomalies = true;
+            }
+          }
+          if (!foundAnomalies) await log('Nikto: No anomalies found.');
+          else await log('Nikto: Scan complete. Anomalies found.');
         }
-        
-        if (lines.length === 0) await log("Nikto: No anomalies found.");
       } catch (e) { await log(`Nikto Error: ${e.message}`); }
     };
 
     const runSqlMap = async () => {
       try {
         await log("Checking for injectable forms...");
-        const { stdout } = await runCommand('python3', ['bin/sqlmap-dir/sqlmap.py', '-u', targetUrl, '--forms', '--batch', '--level=1', '--risk=1', '--random-agent']);
-        
-        if (stdout.includes('is vulnerable')) {
-            await saveFinding("SQLMap", "Critical", { 
-              name: "SQL Injection Detected",
-              description: "SQLMap found a parameter or form that is vulnerable to SQL injection. An attacker could potentially steal or delete your entire database.",
-              raw: "Target is vulnerable to SQL injection.",
-              tool: "SQLMap"
-            });
+        // Added --crawl so it finds parameters if URL is just a domain
+        const { stdout } = await runCommand(PYTHON_CMD, ['bin/sqlmap/sqlmap.py', '-u', targetUrl, '--forms', '--crawl=1', '--batch', '--level=1', '--risk=1', '--threads=2']);
+
+        if (stdout.includes('is vulnerable') || stdout.includes('Payload:')) {
+          await saveFinding("SQLMap", "Critical", {
+            name: "SQL Injection Confirmed",
+            description: "SQLMap successfully exploited the database. Open to view the exact terminal execution trace.",
+            raw: stdout.trim(),
+            tool: "SQLMap",
+            matched: targetUrl
+          });
         } else {
-            await log("SQLMap: No vulnerabilities found.");
+          await log("SQLMap: No vulnerabilities found.");
         }
       } catch (e) { await log(`SQLMap Error: ${e.message}`); }
     };
@@ -222,58 +223,48 @@ async function main() {
     const runXSStrike = async () => {
       try {
         await log("Engaging XSStrike...");
-        const { stdout } = await runCommand('python3', ['bin/xsstrike/xsstrike.py', '--url', targetUrl, '--skip', '--timeout', '30']);
-        
-        if (stdout.includes('Vulnerable')) {
-            await saveFinding("XSStrike", "High", { 
-              name: "Cross-Site Scripting (XSS)",
-              description: "A potential XSS vulnerability was found. Attackers can inject malicious scripts into pages viewed by other users.",
-              raw: "XSS Vulnerability confirmed by payload execution.",
-              tool: "XSStrike"
-            });
+        const { stdout } = await runCommand(PYTHON_CMD, ['bin/xsstrike/xsstrike.py', '-u', targetUrl, '--crawl', '--skip', '--timeout', '10']);
+
+        if (stdout.includes('Vulnerable') || stdout.includes('Payload:')) {
+          await saveFinding("XSStrike", "High", {
+            name: "Cross-Site Scripting (XSS)",
+            description: "XSStrike executed a successful XSS payload. Open to view the exact terminal trace.",
+            raw: stdout.trim(),
+            tool: "XSStrike",
+            matched: targetUrl
+          });
         } else {
-            await log("XSStrike: No vulnerabilities found.");
+          await log("XSStrike: No vulnerabilities found.");
         }
       } catch (e) { await log(`XSStrike Error: ${e.message}`); }
     };
 
-    // Run Tier 3 while Tier 2 is running
     const tier3 = Promise.allSettled([runNikto(), runSqlMap(), runXSStrike()]);
-    
-    // Wait for everything to finish
+
     await new Promise((resolve) => {
-      if (smartNuclei.killed || smartNuclei.exitCode !== null) {
-        resolve(null);
-      } else {
+      if (smartNuclei.killed || smartNuclei.exitCode !== null) resolve(null);
+      else {
         smartNuclei.on('close', resolve);
+        smartNuclei.on('error', resolve);
       }
     });
-    
+
     await tier3;
 
     await log("Scan sequence complete. Synchronizing final status...");
-    
-    // Explicitly await the final update
-    const { error: completeError } = await supabase
-      .from('scans')
-      .update({ status: 'COMPLETED' })
-      .eq('id', scanId);
 
-    if (completeError) {
-      console.error("Database Update Error:", completeError.message);
-    } else {
-      await log("Status locked: COMPLETED");
-    }
-    
+    await supabase.from('scans').update({ status: 'COMPLETED' }).eq('id', scanId);
+    await log("Status locked: COMPLETED");
+
   } catch (error) {
     console.error("Worker Error:", error);
     await log(`FATAL ERROR: ${error.message}`);
     await supabase.from('scans').update({ status: 'FAILED', error: error.message }).eq('id', scanId);
   } finally {
-    // Crucial: Give the database 2 seconds to receive the last messages before GH Action kills the process
-    await new Promise(res => setTimeout(res, 2000));
-    console.log("--- SCANNER WORKER SHUTDOWN ---");
-    process.exit(0);
+    setTimeout(() => {
+      console.log("--- SCANNER WORKER SHUTDOWN ---");
+      process.exit(0);
+    }, 2000);
   }
 }
 

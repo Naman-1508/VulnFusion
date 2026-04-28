@@ -316,7 +316,7 @@ export default function ScanPage({ params }: { params: Promise<{ id: string }> }
                   >
                     <div className="space-y-1.5">
                       {logs.map((log, i) => (
-                        <div key={log.id} className="group flex gap-4">
+                        <div key={`${log.id}-${i}`} className="group flex gap-4">
                           <span className="text-slate-700 w-20 shrink-0 tabular-nums">[{new Date(log.created_at).toLocaleTimeString()}]</span>
                           <span className={`${
                             log.message.includes('Error') ? 'text-rose-400' :

@@ -19,45 +19,79 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      # Cache the binary tools (Nuclei, Subfinder, SQLMap, Nikto)
       - name: Cache Security Tools
         id: cache-tools
         uses: actions/cache@v4
         with:
           path: bin/
-          key: ${{ runner.os }}-security-tools-v3
+          key: ${{ runner.os }}-security-tools-v4
 
+      # Cache pip packages (XSStrike dependencies)
+      - name: Cache pip packages
+        id: cache-pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-xsstrike-v1
+
+      # Cache Nuclei templates separately - they update frequently
       - name: Cache Nuclei Templates
         id: cache-templates
         uses: actions/cache@v4
         with:
-          path: ~/.nuclei-templates
-          key: ${{ runner.os }}-nuclei-templates
+          path: ~/.local/nuclei-templates
+          key: ${{ runner.os }}-nuclei-templates-${{ hashFiles('**/scan.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-nuclei-templates-
 
-      - name: Install Tools (if not cached)
+      # Only download tools when cache is cold
+      - name: Install Security Tools (if not cached)
         if: steps.cache-tools.outputs.cache-hit != 'true'
         run: |
           mkdir -p bin
-          # Nuclei
+          echo "==> Downloading Nuclei..."
           wget -q https://github.com/projectdiscovery/nuclei/releases/download/v3.3.10/nuclei_3.3.10_linux_amd64.zip -O nuclei.zip
-          unzip -o nuclei.zip -d bin/ && chmod +x bin/nuclei
-          # Subfinder
+          unzip -o nuclei.zip -d bin/ && chmod +x bin/nuclei && rm nuclei.zip
+
+          echo "==> Downloading Subfinder..."
           wget -q https://github.com/projectdiscovery/subfinder/releases/download/v2.6.7/subfinder_2.6.7_linux_amd64.zip -O subfinder.zip
-          unzip -o subfinder.zip -d bin/ && chmod +x bin/subfinder
-          # SQLMap & Nikto
-          git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git bin/sqlmap-dir
+          unzip -o subfinder.zip -d bin/ && chmod +x bin/subfinder && rm subfinder.zip
+
+          echo "==> Cloning SQLMap..."
+          git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git bin/sqlmap
+
+          echo "==> Cloning Nikto..."
           git clone --depth 1 https://github.com/sullo/nikto.git bin/nikto-dir
-          rm *.zip
 
-      - name: Update Templates (if needed)
-        run: ./bin/nuclei -ut -silent
+          echo "==> Cloning XSStrike..."
+          git clone --depth 1 https://github.com/s0md3v/XSStrike.git bin/xsstrike
 
+      # Always update templates (fast if cache hit)
+      - name: Update Nuclei Templates
+        run: ./bin/nuclei -ut -silent || true
+
+      # Install Node dependencies (npm ci is fast with cache)
       - name: Install Node Dependencies
         run: npm ci
 
+      # Install OS-level dependencies (Perl + Python3)
+      # apt lists are cached, so this is fast on repeated runs
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        id: cache-apt
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-perl-python3-v1
+
       - name: Install OS Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 perl python3-pip
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends perl python3 python3-pip
+
+      # Install XSStrike Python dependencies (cached via pip cache above)
+      - name: Install XSStrike Dependencies
+        run: pip3 install requests --quiet
 
       - name: Run Scan Worker
         env:
@@ -65,5 +99,7 @@ jobs:
           SCAN_ID: ${{ github.event.client_payload.scan_id }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          CI: 'true'
+          GITHUB_ACTIONS: 'true'
           PATH: ${{ github.workspace }}/bin:$PATH
         run: node scanner-worker.js

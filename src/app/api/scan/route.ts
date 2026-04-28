@@ -1,5 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { spawn } from 'child_process';
+import path from 'path';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,8 +14,8 @@ export async function POST(req: NextRequest) {
     }
     
     // Validate URL format
-    try { new URL(url); } catch {
-      return NextResponse.json({ error: "Invalid URL format. Please include http:// or https://" }, { status: 400 });
+    try { new URL(url.startsWith('http') ? url : `http://${url}`); } catch {
+      return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
     }
 
     if (!supabaseAdmin) {
@@ -32,41 +34,28 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Failed to create scan record" }, { status: 500 });
     }
     
-    // 2. Dispatch GitHub Action
-    const GITHUB_PAT = process.env.GITHUB_PAT;
-    const OWNER = process.env.GITHUB_REPO_OWNER;
-    const REPO = process.env.GITHUB_REPO_NAME;
-
-    if (!GITHUB_PAT || !OWNER || !REPO) {
-        console.error("GitHub configuration missing in environment variables");
-        await supabaseAdmin.from('scans').update({ status: 'FAILED', error: 'System configuration error (GitHub)' }).eq('id', scan.id);
-        return NextResponse.json({ error: "Scanner deployment configuration missing" }, { status: 500 });
-    }
-
-    const dispatchResponse = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/dispatches`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GITHUB_PAT}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        event_type: 'run-scan',
-        client_payload: {
-          url: url,
-          scan_id: scan.id
-        }
-      })
+    // 2. Dispatch Local Scanner Worker
+    console.log(`Starting local scanner worker for scan ID: ${scan.id}`);
+    
+    const workerPath = path.join(process.cwd(), 'scanner-worker.js');
+    
+    const workerProcess = spawn('node', [workerPath], {
+      detached: true,
+      stdio: 'ignore', // We ignore stdio so it can run completely in the background
+      env: {
+        ...process.env,
+        SCAN_URL: url,
+        SCAN_ID: scan.id,
+        // Make sure it has access to the Supabase keys
+        SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      }
     });
 
-    if (!dispatchResponse.ok) {
-        const errorText = await dispatchResponse.text();
-        console.error("GitHub Dispatch failed:", errorText);
-        await supabaseAdmin.from('scans').update({ status: 'FAILED', error: 'Failed to trigger scanning engine' }).eq('id', scan.id);
-        return NextResponse.json({ error: "Failed to initiate scanning engine" }, { status: 500 });
-    }
+    // Unref the child process so the parent (Next.js server) doesn't wait for it to exit
+    workerProcess.unref();
 
-    return NextResponse.json({ id: scan.id, scanId: scan.id, message: "Scan dispatched" }, { status: 201 });
+    return NextResponse.json({ id: scan.id, scanId: scan.id, message: "Local scan dispatched" }, { status: 201 });
   } catch (error: any) {
     console.error("POST /api/scan error:", error);
     return NextResponse.json({ error: error.message || "Failed to start scan" }, { status: 500 });

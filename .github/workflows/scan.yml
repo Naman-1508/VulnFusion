@@ -4,6 +4,10 @@ on:
   repository_dispatch:
     types: [run-scan]
 
+env:
+  # Use Node.js 24 to avoid deprecation warnings on actions
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -19,29 +23,27 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      # Cache the binary tools (Nuclei, Subfinder, SQLMap, Nikto)
+      # Cache the binary tools (Nuclei, Subfinder, SQLMap, Nikto, XSStrike)
       - name: Cache Security Tools
         id: cache-tools
         uses: actions/cache@v4
         with:
           path: bin/
-          key: ${{ runner.os }}-security-tools-v4
+          key: ${{ runner.os }}-security-tools-v5
 
       # Cache pip packages (XSStrike dependencies)
       - name: Cache pip packages
-        id: cache-pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-xsstrike-v1
 
-      # Cache Nuclei templates separately - they update frequently
+      # Cache Nuclei templates separately
       - name: Cache Nuclei Templates
-        id: cache-templates
         uses: actions/cache@v4
         with:
           path: ~/.local/nuclei-templates
-          key: ${{ runner.os }}-nuclei-templates-${{ hashFiles('**/scan.yml') }}
+          key: ${{ runner.os }}-nuclei-templates-v1
           restore-keys: |
             ${{ runner.os }}-nuclei-templates-
 
@@ -50,6 +52,7 @@ jobs:
         if: steps.cache-tools.outputs.cache-hit != 'true'
         run: |
           mkdir -p bin
+
           echo "==> Downloading Nuclei..."
           wget -q https://github.com/projectdiscovery/nuclei/releases/download/v3.3.10/nuclei_3.3.10_linux_amd64.zip -O nuclei.zip
           unzip -o nuclei.zip -d bin/ && chmod +x bin/nuclei && rm nuclei.zip
@@ -59,37 +62,29 @@ jobs:
           unzip -o subfinder.zip -d bin/ && chmod +x bin/subfinder && rm subfinder.zip
 
           echo "==> Cloning SQLMap..."
-          git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git bin/sqlmap
+          git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git bin/sqlmap || echo "SQLMap clone failed, retrying..." && sleep 5 && git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git bin/sqlmap
 
           echo "==> Cloning Nikto..."
-          git clone --depth 1 https://github.com/sullo/nikto.git bin/nikto-dir
+          git clone --depth 1 https://github.com/sullo/nikto.git bin/nikto-dir || echo "Nikto clone failed, retrying..." && sleep 5 && git clone --depth 1 https://github.com/sullo/nikto.git bin/nikto-dir
 
           echo "==> Cloning XSStrike..."
-          git clone --depth 1 https://github.com/s0md3v/XSStrike.git bin/xsstrike
+          git clone --depth 1 https://github.com/s0md3v/XSStrike.git bin/xsstrike || echo "XSStrike clone failed, retrying..." && sleep 5 && git clone --depth 1 https://github.com/s0md3v/XSStrike.git bin/xsstrike
 
       # Always update templates (fast if cache hit)
       - name: Update Nuclei Templates
         run: ./bin/nuclei -ut -silent || true
 
-      # Install Node dependencies (npm ci is fast with cache)
+      # Install Node dependencies
       - name: Install Node Dependencies
         run: npm ci
 
-      # Install OS-level dependencies (Perl + Python3)
-      # apt lists are cached, so this is fast on repeated runs
-      - name: Cache apt packages
-        uses: actions/cache@v4
-        id: cache-apt
-        with:
-          path: /var/cache/apt/archives
-          key: ${{ runner.os }}-apt-perl-python3-v1
-
+      # Install OS-level dependencies
       - name: Install OS Dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends perl python3 python3-pip
 
-      # Install XSStrike Python dependencies (cached via pip cache above)
+      # Install XSStrike Python dependencies
       - name: Install XSStrike Dependencies
         run: pip3 install requests --quiet
 

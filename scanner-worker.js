@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { spawn } from 'child_process';
 import os from 'os';
+import path from 'path';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
@@ -25,6 +26,8 @@ const BIN_EXT = isWin ? '.exe' : '';
 const PYTHON_CMD = isWin ? 'python' : 'python3';
 const PERL_CMD = isWin ? 'C:\\Strawberry\\perl\\bin\\perl.exe' : 'perl';
 const NIKTO_SCRIPT = IS_CI ? 'bin/nikto-dir/program/nikto.pl' : 'bin/nikto/program/nikto.txt';
+// Cross-platform binary path: uses ./ on Linux, .\  on Windows
+const getBin = (name) => path.join('bin', `${name}${BIN_EXT}`);
 
 async function log(message) {
   const timestamp = new Date().toLocaleTimeString();
@@ -83,7 +86,7 @@ async function main() {
     // --- PHASE 0: Subdomain Discovery (Subfinder) ---
     if (!scanUrl.includes('localhost') && !scanUrl.includes('127.0.0.1')) {
       await log("Phase 0: Scanning for subdomains...");
-      const { stdout: sfOut } = await runCommand(`.\\bin\\subfinder${BIN_EXT}`, ['-d', domain, '-silent']);
+      const { stdout: sfOut } = await runCommand(getBin('subfinder'), ['-d', domain, '-silent']);
       const subdomains = sfOut.split('\n').filter(Boolean);
       if (subdomains.length > 0) {
         await saveFinding("Subfinder", "Info", {
@@ -101,7 +104,7 @@ async function main() {
     await log("Phase 1: Initializing Technology Fingerprinting...");
     const detectedTech = [];
 
-    const nucleiTech = spawn(`.\\bin\\nuclei${BIN_EXT}`, ['-u', targetUrl, '-t', 'technologies', '-json', '-silent'], { shell: isWin, windowsHide: true });
+    const nucleiTech = spawn(getBin('nuclei'), ['-u', targetUrl, '-t', 'technologies', '-json', '-silent'], { shell: isWin, windowsHide: true });
 
     nucleiTech.stdout.on('data', async (data) => {
       const lines = data.toString().split('\n').filter(Boolean);
@@ -133,7 +136,7 @@ async function main() {
       nucleiArgs.push('-t', folder);
     }
 
-    const smartNuclei = spawn(`.\\bin\\nuclei${BIN_EXT}`, nucleiArgs, { shell: isWin, windowsHide: true });
+    const smartNuclei = spawn(getBin('nuclei'), nucleiArgs, { shell: isWin, windowsHide: true });
 
     smartNuclei.stdout.on('data', async (data) => {
       const lines = data.toString().split('\n').filter(Boolean);

@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// Force dynamic - this route is never statically rendered
+// Force dynamic rendering - this route makes external API calls
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Supabase Admin not configured" }, { status: 500 });
     }
     
-    // Create the scan record in Supabase
+    // 1. Create the scan record in Supabase
     const { data: scan, error: dbError } = await supabaseAdmin
       .from('scans')
       .insert([{ url: url, status: 'PENDING' }])
@@ -33,70 +33,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create scan record" }, { status: 500 });
     }
     
-    const isVercel = process.env.VERCEL === '1';
+    // 2. Dispatch scanner via GitHub Actions repository_dispatch
+    // This works for BOTH local development and production (Vercel).
+    // On Vercel: serverless functions cannot spawn background processes.
+    // On localhost: GitHub Actions provides a clean Linux environment with all tools installed.
+    const githubToken = process.env.GITHUB_PAT;
+    const repoOwner = process.env.GITHUB_REPO_OWNER;
+    const repoName = process.env.GITHUB_REPO_NAME;
 
-    if (isVercel) {
-      // ─── PRODUCTION (Vercel) ───────────────────────────────────────────────
-      // Vercel is serverless — we cannot spawn background processes.
-      // Trigger the GitHub Actions workflow instead, which has all the tools.
-      const githubToken = process.env.GITHUB_TOKEN;
-      const githubRepo = process.env.GITHUB_REPO; // e.g. "Naman-1508/VulnFusion"
-
-      if (!githubToken || !githubRepo) {
-        console.error("GITHUB_TOKEN or GITHUB_REPO env vars not set for production scan dispatch.");
-        return NextResponse.json({ 
-          error: "Scanner not configured for production. Set GITHUB_TOKEN and GITHUB_REPO in Vercel env vars." 
-        }, { status: 500 });
-      }
-
-      const ghResponse = await fetch(
-        `https://api.github.com/repos/${githubRepo}/dispatches`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `token ${githubToken}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            event_type: 'run-scan',
-            client_payload: { url, scan_id: scan.id }
-          })
-        }
-      );
-
-      if (!ghResponse.ok) {
-        const errText = await ghResponse.text();
-        console.error("GitHub Actions dispatch failed:", errText);
-        return NextResponse.json({ error: "Failed to dispatch scanner via GitHub Actions" }, { status: 500 });
-      }
-
-      console.log(`GitHub Actions scan dispatched for scan ID: ${scan.id}`);
-
-    } else {
-      // ─── LOCALHOST (Development) ───────────────────────────────────────────
-      // Dynamically import child_process so Turbopack never sees it at build time.
-      const { spawn } = await import('child_process');
-      const { join } = await import('path');
-
-      const workerPath = join(process.cwd(), process.env.WORKER_SCRIPT_NAME as string);
-      console.log(`Spawning local scanner worker for scan ID: ${scan.id}`);
-
-      const workerProcess = spawn('node', [workerPath], {
-        detached: true,
-        stdio: 'ignore',
-        env: {
-          ...process.env,
-          SCAN_URL: url,
-          SCAN_ID: scan.id,
-          SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-          SUPABASE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        }
-      });
-      workerProcess.unref();
+    if (!githubToken || !repoOwner || !repoName) {
+      console.error("GITHUB_PAT, GITHUB_REPO_OWNER or GITHUB_REPO_NAME not configured.");
+      return NextResponse.json({ 
+        error: "Scanner not configured. Set GITHUB_PAT, GITHUB_REPO_OWNER and GITHUB_REPO_NAME environment variables." 
+      }, { status: 500 });
     }
 
-    return NextResponse.json({ id: scan.id, scanId: scan.id, message: "Scan dispatched" }, { status: 201 });
+    const ghResponse = await fetch(
+      `https://api.github.com/repos/${repoOwner}/${repoName}/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event_type: 'run-scan',
+          client_payload: { url, scan_id: scan.id }
+        })
+      }
+    );
+
+    if (!ghResponse.ok) {
+      const errText = await ghResponse.text();
+      console.error("GitHub Actions dispatch failed:", ghResponse.status, errText);
+      return NextResponse.json({ error: "Failed to dispatch scanner" }, { status: 500 });
+    }
+
+    console.log(`GitHub Actions scan dispatched for scan ID: ${scan.id}, URL: ${url}`);
+    return NextResponse.json({ id: scan.id, scanId: scan.id, message: "Scan dispatched via GitHub Actions" }, { status: 201 });
 
   } catch (error: any) {
     console.error("POST /api/scan error:", error);

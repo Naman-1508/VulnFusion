@@ -148,7 +148,7 @@ async function main() {
         if (IS_CI) {
           const niktoDir = path.resolve('bin/nikto-dir/program');
           const isHttps = targetUrl.startsWith('https://');
-          const niktoArgs = ['nikto.pl', '-h', targetUrl, '-maxtime', '90s', '-Format', 'txt'];
+          const niktoArgs = ['nikto.pl', '-h', targetUrl, '-maxtime', '5m', '-Format', 'txt'];
           if (isHttps) niktoArgs.push('-ssl');  // CRITICAL: without this Nikto scans HTTP and gets nothing on HTTPS targets
           const { stdout, stderr, code } = await runCommand(PERL_CMD, niktoArgs, { cwd: niktoDir });
           console.log('[NIKTO STDERR]', stderr?.slice(0, 300));

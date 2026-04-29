@@ -50,7 +50,8 @@ async function saveFinding(tool, severity, data) {
 
 function runCommand(cmd, args, opts = {}) {
   return new Promise((resolve) => {
-    const proc = spawn(cmd, args, { shell: isWin, windowsHide: true, cwd: opts.cwd || undefined });
+    // 5-minute timeout (300000ms) for all commands so they never hang the workflow
+    const proc = spawn(cmd, args, { shell: isWin, windowsHide: true, cwd: opts.cwd || undefined, timeout: 300000 });
     let stdout = "";
     let stderr = "";
 
@@ -104,7 +105,7 @@ async function main() {
     const runNuclei = async () => {
       await log("Phase 1: Initializing Technology Fingerprinting...");
       const detectedTech = [];
-      const nucleiTech = spawn(getBin('nuclei'), ['-u', targetUrl, '-t', 'technologies', '-json', '-silent'], { shell: isWin, windowsHide: true });
+      const nucleiTech = spawn(getBin('nuclei'), ['-u', targetUrl, '-t', 'technologies', '-json', '-silent'], { shell: isWin, windowsHide: true, timeout: 60000 });
       nucleiTech.stdout.on('data', async (data) => {
         for (const line of data.toString().split('\n').filter(Boolean)) {
           try {
@@ -125,7 +126,7 @@ async function main() {
       const nucleiArgs = ['-u', targetUrl, '-json', '-silent', '-rl', '30',
         '-t', 'vulnerabilities', '-t', 'misconfigurations', '-t', 'exposures'];
       if (isHttps) nucleiArgs.push('-t', 'ssl'); // SSL/TLS misconfiguration templates
-      const smartNuclei = spawn(getBin('nuclei'), nucleiArgs, { shell: isWin, windowsHide: true });
+      const smartNuclei = spawn(getBin('nuclei'), nucleiArgs, { shell: isWin, windowsHide: true, timeout: 300000 });
       smartNuclei.stdout.on('data', async (data) => {
         for (const line of data.toString().split('\n').filter(Boolean)) {
           try {

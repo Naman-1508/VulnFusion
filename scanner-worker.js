@@ -25,7 +25,6 @@ const IS_CI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
 const BIN_EXT = isWin ? '.exe' : '';
 const PYTHON_CMD = isWin ? 'python' : 'python3';
 const PERL_CMD = isWin ? 'C:\\Strawberry\\perl\\bin\\perl.exe' : 'perl';
-const NIKTO_SCRIPT = IS_CI ? 'bin/nikto-dir/program/nikto.pl' : 'bin/nikto/program/nikto.txt';
 // Cross-platform binary path: uses ./ on Linux, .\  on Windows
 const getBin = (name) => path.join('bin', `${name}${BIN_EXT}`);
 
@@ -77,15 +76,19 @@ function runCommand(cmd, args, opts = {}) {
 
 async function main() {
   try {
-    let targetUrl = scanUrl.startsWith('http') ? scanUrl : `http://${scanUrl}`;
-    const domain = targetUrl.replace('http://', '').replace('https://', '').split('/')[0];
+    // Normalize URL — default to HTTPS (not HTTP) since virtually all modern sites use HTTPS
+    let targetUrl = scanUrl.startsWith('http') ? scanUrl : `https://${scanUrl}`;
+    // Robust domain extraction using URL API
+    const domain = new URL(targetUrl).hostname;
+    const isHttps = targetUrl.startsWith('https://');
+    const isLocalhost = domain === 'localhost' || domain === '127.0.0.1' || domain.endsWith('.local');
 
     await supabase.from('scans').update({ status: 'RUNNING' }).eq('id', scanId);
     await log(`Starting scan sequence for ${targetUrl}`);
 
     // --- PHASE 0: Subfinder (fire and forget, doesn't block anything) ---
     const runSubfinder = async () => {
-      if (scanUrl.includes('localhost') || scanUrl.includes('127.0.0.1')) return;
+      if (isLocalhost) return; // skip subdomain scan for local targets
       await log("Phase 0: Scanning for subdomains...");
       const { stdout: sfOut } = await runCommand(getBin('subfinder'), ['-d', domain, '-silent']);
       const subdomains = sfOut.split('\n').filter(Boolean);
@@ -117,9 +120,11 @@ async function main() {
       });
       await log(`Fingerprinting complete. Detected: ${detectedTech.join(', ') || 'Standard'}`);
 
-      // Smart sweep after tech detection
+      // Smart sweep after tech detection — include ssl templates for HTTPS targets
       await log("Phase 2: Engaging Smart Nuclei Sweep...");
-      const nucleiArgs = ['-u', targetUrl, '-json', '-silent', '-rl', '30', '-t', 'vulnerabilities', '-t', 'misconfigurations', '-t', 'exposures'];
+      const nucleiArgs = ['-u', targetUrl, '-json', '-silent', '-rl', '30',
+        '-t', 'vulnerabilities', '-t', 'misconfigurations', '-t', 'exposures'];
+      if (isHttps) nucleiArgs.push('-t', 'ssl'); // SSL/TLS misconfiguration templates
       const smartNuclei = spawn(getBin('nuclei'), nucleiArgs, { shell: isWin, windowsHide: true });
       smartNuclei.stdout.on('data', async (data) => {
         for (const line of data.toString().split('\n').filter(Boolean)) {
@@ -142,8 +147,12 @@ async function main() {
         await log("Engaging Nikto...");
         if (IS_CI) {
           const niktoDir = path.resolve('bin/nikto-dir/program');
-          const { stdout, stderr, code } = await runCommand(PERL_CMD, ['nikto.pl', '-h', targetUrl, '-maxtime', '90s', '-Format', 'txt'], { cwd: niktoDir });
+          const isHttps = targetUrl.startsWith('https://');
+          const niktoArgs = ['nikto.pl', '-h', targetUrl, '-maxtime', '90s', '-Format', 'txt'];
+          if (isHttps) niktoArgs.push('-ssl');  // CRITICAL: without this Nikto scans HTTP and gets nothing on HTTPS targets
+          const { stdout, stderr, code } = await runCommand(PERL_CMD, niktoArgs, { cwd: niktoDir });
           console.log('[NIKTO STDERR]', stderr?.slice(0, 300));
+          console.log('[NIKTO STDOUT PREVIEW]', stdout?.slice(0, 300));
           if (code !== 0 && !stdout) { await log(`Nikto: Failed (exit ${code}). ${stderr?.slice(0,150)}`); return; }
           const lines = stdout.split('\n').filter(l => l.startsWith('+ '));
           for (const line of lines) {
@@ -193,10 +202,13 @@ async function main() {
     const runSqlMap = async () => {
       try {
         await log("Checking for injectable forms...");
-        const { stdout } = await runCommand(PYTHON_CMD, [
+        const sqlmapArgs = [
           'bin/sqlmap/sqlmap.py', '-u', targetUrl,
-          '--forms', '--crawl=2', '--batch', '--level=2', '--risk=1', '--threads=4', '--timeout=30', '--retries=1'
-        ]);
+          '--forms', '--crawl=2', '--batch', '--level=2', '--risk=1',
+          '--threads=4', '--timeout=30', '--retries=1'
+        ];
+        if (isHttps) sqlmapArgs.push('--force-ssl'); // explicit HTTPS enforcement
+        const { stdout } = await runCommand(PYTHON_CMD, sqlmapArgs);
         if (stdout.includes('is vulnerable') || stdout.includes('Payload:')) {
           await saveFinding("SQLMap", "Critical", { name: "SQL Injection Confirmed", description: "SQLMap confirmed SQL injection. Raw terminal trace below.", raw: stdout.trim(), tool: "SQLMap", matched: targetUrl });
         } else { await log("SQLMap: No vulnerabilities found."); }
@@ -216,6 +228,76 @@ async function main() {
       } catch (e) { await log(`XSStrike Error: ${e.message}`); }
     };
 
+    // --- SECRETS SCANNER (JS Bundle Analysis) ---
+    const runSecretsScanner = async () => {
+      try {
+        await log('Scanning JS bundles for exposed secrets & API keys...');
+        // Fetch the HTML page
+        const pageRes = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }).catch(() => null);
+        if (!pageRes) { await log('Secrets: Could not fetch target page.'); return; }
+        const html = await pageRes.text();
+
+        // Extract all JS file URLs from the page
+        const jsPattern = /src=["']([^"']*\.js[^"']*)["']/gi;
+        const jsUrls = [];
+        let match;
+        while ((match = jsPattern.exec(html)) !== null) {
+          const src = match[1];
+          jsUrls.push(src.startsWith('http') ? src : new URL(src, targetUrl).href);
+        }
+        console.log(`[SECRETS] Found ${jsUrls.length} JS files to scan`);
+
+        // Also scan the HTML itself
+        const sourcesToScan = [{ url: targetUrl, content: html }, ...await Promise.all(
+          jsUrls.slice(0, 10).map(async (url) => { // limit to 10 JS files
+            try {
+              const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+              return { url, content: await r.text() };
+            } catch { return null; }
+          })
+        )].filter(Boolean);
+
+        // Secret patterns to detect
+        const patterns = [
+          { name: 'Google API Key',           severity: 'Critical', regex: /AIza[0-9A-Za-z\-_]{35}/g },
+          { name: 'Supabase Anon Key',        severity: 'High',     regex: /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
+          { name: 'Firebase Config',          severity: 'High',     regex: /firebaseConfig\s*=\s*\{[^}]+\}/gs },
+          { name: 'AWS Access Key',           severity: 'Critical', regex: /AKIA[0-9A-Z]{16}/g },
+          { name: 'AWS Secret Key',           severity: 'Critical', regex: /(?<![A-Za-z0-9\/+])[A-Za-z0-9\/+]{40}(?![A-Za-z0-9\/+])/g },
+          { name: 'Stripe Secret Key',        severity: 'Critical', regex: /sk_live_[0-9a-zA-Z]{24,}/g },
+          { name: 'Stripe Publishable Key',   severity: 'Medium',   regex: /pk_live_[0-9a-zA-Z]{24,}/g },
+          { name: 'GitHub PAT',               severity: 'Critical', regex: /gh[pousr]_[A-Za-z0-9_]{36,}/g },
+          { name: 'OpenAI API Key',           severity: 'Critical', regex: /sk-[A-Za-z0-9]{32,}/g },
+          { name: 'Twilio Account SID',       severity: 'High',     regex: /AC[a-z0-9]{32}/g },
+          { name: 'Mailgun API Key',          severity: 'High',     regex: /key-[0-9a-zA-Z]{32}/g },
+          { name: 'Hardcoded Password',       severity: 'High',     regex: /(?:password|passwd|pwd)\s*[=:]\s*["'][^"']{6,}["']/gi },
+          { name: 'Hardcoded API Key/Secret', severity: 'High',     regex: /(?:api_?key|api_?secret|client_?secret)\s*[=:]\s*["'][^"']{8,}["']/gi },
+        ];
+
+        let totalFound = 0;
+        for (const source of sourcesToScan) {
+          for (const pattern of patterns) {
+            const matches = [...new Set(source.content.match(pattern.regex) || [])];
+            for (const secret of matches) {
+              // Skip obvious placeholders
+              if (/your[_-]?api[_-]?key|example|placeholder|xxx|test123/i.test(secret)) continue;
+              totalFound++;
+              await saveFinding('SecretsScanner', pattern.severity, {
+                name: pattern.name,
+                description: `Exposed ${pattern.name} found in ${source.url === targetUrl ? 'page HTML' : 'JS bundle: ' + source.url}`,
+                raw: `[SecretsScanner]\nSource: ${source.url}\nPattern: ${pattern.name}\nExposed Value: ${secret.slice(0, 80)}${secret.length > 80 ? '...' : ''}`,
+                tool: 'SecretsScanner',
+                matched: source.url
+              });
+            }
+          }
+        }
+
+        if (totalFound === 0) await log('Secrets: No exposed secrets or API keys found.');
+        else await log(`Secrets: ⚠️ ${totalFound} exposed secret(s) found in page/JS bundles!`);
+      } catch (e) { await log(`Secrets Scanner Error: ${e.message}`); }
+    };
+
     // --- RUN ALL ENGINES IN PARALLEL ---
     await log("Launching all scan engines in parallel...");
     await Promise.allSettled([
@@ -224,6 +306,7 @@ async function main() {
       runNikto(),
       runSqlMap(),
       runXSStrike(),
+      runSecretsScanner(),
     ]);
 
 

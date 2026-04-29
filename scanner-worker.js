@@ -225,79 +225,8 @@ async function main() {
         if (stdout.includes('Vulnerable') || stdout.includes('Payload:')) {
           await saveFinding("XSStrike", "High", { name: "Cross-Site Scripting (XSS)", description: "XSStrike confirmed XSS. Raw terminal trace below.", raw: stdout.trim(), tool: "XSStrike", matched: targetUrl });
         } else { await log("XSStrike: No vulnerabilities found."); }
-      } catch (e) { await log(`XSStrike Error: ${e.message}`); }
+       } catch (e) { await log(`XSStrike Error: ${e.message}`); }
     };
-
-    // --- SECRETS SCANNER (JS Bundle Analysis) ---
-    const runSecretsScanner = async () => {
-      try {
-        await log('Scanning JS bundles for exposed secrets & API keys...');
-        // Fetch the HTML page
-        const pageRes = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }).catch(() => null);
-        if (!pageRes) { await log('Secrets: Could not fetch target page.'); return; }
-        const html = await pageRes.text();
-
-        // Extract all JS file URLs from the page
-        const jsPattern = /src=["']([^"']*\.js[^"']*)["']/gi;
-        const jsUrls = [];
-        let match;
-        while ((match = jsPattern.exec(html)) !== null) {
-          const src = match[1];
-          jsUrls.push(src.startsWith('http') ? src : new URL(src, targetUrl).href);
-        }
-        console.log(`[SECRETS] Found ${jsUrls.length} JS files to scan`);
-
-        // Also scan the HTML itself
-        const sourcesToScan = [{ url: targetUrl, content: html }, ...await Promise.all(
-          jsUrls.slice(0, 10).map(async (url) => { // limit to 10 JS files
-            try {
-              const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-              return { url, content: await r.text() };
-            } catch { return null; }
-          })
-        )].filter(Boolean);
-
-        // Secret patterns to detect
-        const patterns = [
-          { name: 'Google API Key',           severity: 'Critical', regex: /AIza[0-9A-Za-z\-_]{35}/g },
-          { name: 'Supabase Anon Key',        severity: 'High',     regex: /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
-          { name: 'Firebase Config',          severity: 'High',     regex: /firebaseConfig\s*=\s*\{[^}]+\}/gs },
-          { name: 'AWS Access Key',           severity: 'Critical', regex: /AKIA[0-9A-Z]{16}/g },
-          { name: 'AWS Secret Key',           severity: 'Critical', regex: /(?<![A-Za-z0-9\/+])[A-Za-z0-9\/+]{40}(?![A-Za-z0-9\/+])/g },
-          { name: 'Stripe Secret Key',        severity: 'Critical', regex: /sk_live_[0-9a-zA-Z]{24,}/g },
-          { name: 'Stripe Publishable Key',   severity: 'Medium',   regex: /pk_live_[0-9a-zA-Z]{24,}/g },
-          { name: 'GitHub PAT',               severity: 'Critical', regex: /gh[pousr]_[A-Za-z0-9_]{36,}/g },
-          { name: 'OpenAI API Key',           severity: 'Critical', regex: /sk-[A-Za-z0-9]{32,}/g },
-          { name: 'Twilio Account SID',       severity: 'High',     regex: /AC[a-z0-9]{32}/g },
-          { name: 'Mailgun API Key',          severity: 'High',     regex: /key-[0-9a-zA-Z]{32}/g },
-          { name: 'Hardcoded Password',       severity: 'High',     regex: /(?:password|passwd|pwd)\s*[=:]\s*["'][^"']{6,}["']/gi },
-          { name: 'Hardcoded API Key/Secret', severity: 'High',     regex: /(?:api_?key|api_?secret|client_?secret)\s*[=:]\s*["'][^"']{8,}["']/gi },
-        ];
-
-        let totalFound = 0;
-        for (const source of sourcesToScan) {
-          for (const pattern of patterns) {
-            const matches = [...new Set(source.content.match(pattern.regex) || [])];
-            for (const secret of matches) {
-              // Skip obvious placeholders
-              if (/your[_-]?api[_-]?key|example|placeholder|xxx|test123/i.test(secret)) continue;
-              totalFound++;
-              await saveFinding('SecretsScanner', pattern.severity, {
-                name: pattern.name,
-                description: `Exposed ${pattern.name} found in ${source.url === targetUrl ? 'page HTML' : 'JS bundle: ' + source.url}`,
-                raw: `[SecretsScanner]\nSource: ${source.url}\nPattern: ${pattern.name}\nExposed Value: ${secret.slice(0, 80)}${secret.length > 80 ? '...' : ''}`,
-                tool: 'SecretsScanner',
-                matched: source.url
-              });
-            }
-          }
-        }
-
-        if (totalFound === 0) await log('Secrets: No exposed secrets or API keys found.');
-        else await log(`Secrets: ⚠️ ${totalFound} exposed secret(s) found in page/JS bundles!`);
-      } catch (e) { await log(`Secrets Scanner Error: ${e.message}`); }
-    };
-
     // --- RUN ALL ENGINES IN PARALLEL ---
     await log("Launching all scan engines in parallel...");
     await Promise.allSettled([
@@ -306,8 +235,8 @@ async function main() {
       runNikto(),
       runSqlMap(),
       runXSStrike(),
-      runSecretsScanner(),
     ]);
+
 
 
     await log("Scan sequence complete. Synchronizing final status...");

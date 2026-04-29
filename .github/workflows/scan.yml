@@ -39,7 +39,7 @@ jobs:
       - name: Install OS Dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends perl python3 python3-pip unzip wget libxml-writer-perl
+          sudo apt-get install -y --no-install-recommends perl python3 python3-pip unzip wget libxml-writer-perl libnet-ssleay-perl
 
       - name: Install Security Tools
         run: |

@@ -53,18 +53,12 @@ jobs:
           wget -q https://github.com/projectdiscovery/subfinder/releases/download/v2.6.7/subfinder_2.6.7_linux_amd64.zip -O subfinder.zip
           unzip -o subfinder.zip subfinder -d bin/ && chmod +x bin/subfinder && rm -f subfinder.zip
 
-          echo "==> Installing SQLMap..."
-          rm -rf bin/sqlmap
-          git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git bin/sqlmap
-
-          echo "==> Installing Nikto..."
-          rm -rf bin/nikto-dir
-          git clone --depth 1 https://github.com/sullo/nikto.git bin/nikto-dir
-
-          echo "==> Installing XSStrike..."
-          rm -rf bin/xsstrike
-          git clone --depth 1 https://github.com/s0md3v/XSStrike.git bin/xsstrike
-
+          echo "==> Installing tools in parallel..."
+          rm -rf bin/sqlmap bin/nikto-dir bin/xsstrike
+          git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git bin/sqlmap &
+          git clone --depth 1 https://github.com/sullo/nikto.git bin/nikto-dir &
+          git clone --depth 1 https://github.com/s0md3v/XSStrike.git bin/xsstrike &
+          wait
           echo "==> All tools installed."
           ls -la bin/
 
@@ -78,13 +72,7 @@ jobs:
         run: pip3 install requests fuzzywuzzy python-Levenshtein --quiet
 
       - name: Add tools to PATH
-        run: |
-          echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
-          echo "==> Verifying tool availability..."
-          which python3 && python3 --version
-          which perl && perl --version | head -1
-          which nuclei && nuclei --version || true
-          which subfinder && subfinder --version || true
+        run: echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - name: Run Scan Worker
         env:
